@@ -1,0 +1,4 @@
+train:
+  epochs: 1000
+  training_steps_per_epoch: 400
+  batch_size: 32
