@@ -1,12 +1,11 @@
 import gymnasium as gym
 import ale_py
-from utils.tensor_utils import normalize_observation, reshape_observation
+from ..utils.tensor_utils import normalize_observation, reshape_observation
 from gymnasium.wrappers import AtariPreprocessing, ClipReward
 
 
 def gather_steps(env_name: str, 
                  env_steps_per_epoch: int,
-                 epsilon_greedy: float,
                  frameskip: int,
                  noop_max: int,
                  episodic_life: bool,
@@ -15,7 +14,7 @@ def gather_steps(env_name: str,
                  observation_height_width: int) -> None:
     
     gym.register_envs(ale_py)
-    env = gym.make(id=env_name, max_episode_steps=env_steps_per_epoch, frameskip=1)
+    env = gym.make(id=env_name, frameskip=1)
     env = AtariPreprocessing(env=env, 
                              noop_max=noop_max, 
                              frame_skip=frameskip, 
@@ -38,5 +37,8 @@ def gather_steps(env_name: str,
         all_actions.append(random_action)
         all_rewards.append(reward)
         all_terminations.append(termination)
+
+        if termination or truncated:
+            observation, info = env.reset()
 
     return all_observations, all_actions, all_rewards, all_terminations
