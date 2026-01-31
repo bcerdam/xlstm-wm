@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 
-def inspect_dataset(h5_path):
+def inspect_dataset(h5_path:str) -> None:
     with h5py.File(h5_path, 'r') as f:
         print(f"Inspecting: {h5_path}")
         for key in f.keys():
@@ -16,7 +16,7 @@ def inspect_dataset(h5_path):
             print(f"  Max: {np.max(dset)}")
 
 
-def rollout_video(h5_path, start_idx, steps, video_fps, output_path):
+def rollout_video(h5_path:str, start_idx:int, steps:int, video_fps:int, output_path:str) -> None:
     if os.path.dirname(output_path):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
     if os.path.exists(output_path):
@@ -43,8 +43,8 @@ if __name__ == '__main__':
 
     # inspect_dataset(h5_path=h5_path)
 
-    rollout_video(h5_path=h5_path, 
-                  start_idx=start_idx, 
-                  steps=steps,
-                  video_fps=video_fps, 
-                  output_path=output_path)
+    # rollout_video(h5_path=h5_path, 
+    #               start_idx=start_idx, 
+    #               steps=steps,
+    #               video_fps=video_fps, 
+    #               output_path=output_path)

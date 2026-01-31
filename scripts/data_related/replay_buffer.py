@@ -1,8 +1,14 @@
 import os
 import h5py
 import numpy as np
+from typing import List
 
-def update_replay_buffer(replay_buffer_path, observations, actions, rewards, terminations):
+def update_replay_buffer(replay_buffer_path:str, 
+                         observations:List[np.ndarray], 
+                         actions:List[np.int64], 
+                         rewards:List[np.float64], 
+                         terminations:List[np.bool]) -> None:
+    
     if os.path.dirname(replay_buffer_path):
         os.makedirs(os.path.dirname(replay_buffer_path), exist_ok=True)
 
