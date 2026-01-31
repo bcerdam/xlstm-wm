@@ -13,7 +13,7 @@ def gather_steps(env_name: str,
                  episodic_life: bool,
                  min_reward: float,
                  max_reward: float,
-                 observation_height_width: int) -> Tuple[List[np.ndarray], List[np.int64], List[np.float64], List[np.bool]]:
+                 observation_height_width: int) -> Tuple[List[np.ndarray], List[np.int64], List[np.float64], List[bool]]:
     
     gym.register_envs(ale_py)
     env = gym.make(id=env_name, frameskip=1)
