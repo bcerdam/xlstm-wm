@@ -5,3 +5,4 @@ train:
   sequence_length: 64
   latent_dim: 32
   codes_per_latent: 32
+  world_model_learning_rate: 0.0001

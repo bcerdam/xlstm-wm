@@ -1,3 +1,4 @@
+import torch
 import argparse
 import yaml
 import os
@@ -6,9 +7,12 @@ from scripts.data_related.enviroment_steps import gather_steps
 from scripts.data_related.replay_buffer import update_replay_buffer
 from scripts.data_related.atari_dataset import AtariDataset
 from scripts.utils.tensor_utils import random_replay_batch
+from scripts.models.categorical_vae.categorical_autoencoder_step import autoencoder_step
 from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.categorical_vae.encoder_fwd_pass import forward_pass_encoder
 from scripts.models.categorical_vae.sampler import sample
+from scripts.models.categorical_vae.decoder import CategoricalDecoder
+from scripts.models.categorical_vae.decoder_fwd_pass import forward_pass_decoder
 
 
 if __name__ == '__main__':
@@ -27,15 +31,21 @@ if __name__ == '__main__':
     if os.path.exists('data'):
             shutil.rmtree('data')
 
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     EPOCHS = train_cfg['epochs']
     REPLAY_BUFFER_PATH = dataset_cfg['replay_buffer_path']
     BATCH_SIZE = train_cfg['batch_size']
     SEQUENCE_LENGTH = train_cfg['sequence_length']
     LATENT_DIM = train_cfg['latent_dim']
     CODES_PER_LATENT = train_cfg['codes_per_latent']
+    WORLD_MODEL_LEARNING_RATE = train_cfg['world_model_learning_rate']
 
-    categorical_encoder = CategoricalEncoder(latent_dim=LATENT_DIM, codes_per_latent=CODES_PER_LATENT)
+    categorical_encoder = CategoricalEncoder(latent_dim=LATENT_DIM, codes_per_latent=CODES_PER_LATENT).to(DEVICE)
+    categorical_decoder = CategoricalDecoder(latent_dim=LATENT_DIM, codes_per_latent=CODES_PER_LATENT).to(DEVICE)
+    OPTIMIZER = torch.optim.Adam(list(categorical_encoder.parameters()) + list(categorical_decoder.parameters()), lr=WORLD_MODEL_LEARNING_RATE)
+    SCALER = torch.amp.GradScaler(enabled=True)
     for epoch in range(EPOCHS):
+        # Gather data
         observations, actions, rewards, terminations = gather_steps(**env_cfg)
         update_replay_buffer(replay_buffer_path=REPLAY_BUFFER_PATH, 
                             observations=observations, 
@@ -43,16 +53,21 @@ if __name__ == '__main__':
                             rewards=rewards, 
                             terminations=terminations)
         atari_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=SEQUENCE_LENGTH)
-
         observations_batch, actions_batch, rewards_batch, terminations_batch = random_replay_batch(atari_dataset=atari_dataset, 
                                                                                                    batch_size=BATCH_SIZE, 
-                                                                                                   sequence_length=SEQUENCE_LENGTH)
+                                                                                                   sequence_length=SEQUENCE_LENGTH,
+                                                                                                   device=DEVICE)
 
-        latents_batch = forward_pass_encoder(categorical_encoder=categorical_encoder, 
-                                             observations_batch=observations_batch, 
-                                             batch_size=BATCH_SIZE, 
-                                             sequence_length=SEQUENCE_LENGTH, 
-                                             latent_dim=LATENT_DIM, 
-                                             codes_per_latent=CODES_PER_LATENT)        
-
-        latents_sampled_batch = sample(latents_batch=latents_batch)
+        # Train World Model
+        categorical_autoencoder_reconstruction_loss = autoencoder_step(categorical_encoder=categorical_encoder, 
+                                                                       categorical_decoder=categorical_decoder, 
+                                                                       observations_batch=observations_batch, 
+                                                                       batch_size=BATCH_SIZE, 
+                                                                       sequence_length=SEQUENCE_LENGTH, 
+                                                                       latent_dim=LATENT_DIM, 
+                                                                       codes_per_latent=CODES_PER_LATENT,
+                                                                       optimizer=OPTIMIZER,
+                                                                       scaler=SCALER)
+                
+        # Train Agent
+        

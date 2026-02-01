@@ -1,1 +1,61 @@
-# (32, 32) -> flatten -> linear -> reshape -> (256, 4, 4) -> (3, 64, 64)
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from typing import Tuple
+
+
+def upscale_layer(in_channels:int, 
+                  out_channels:int, 
+                  kernel_size: int, 
+                  stride: int, 
+                  padding: int) -> Tuple:
+    
+    conv = nn.ConvTranspose2d(in_channels=in_channels, 
+                              out_channels=out_channels, 
+                              kernel_size=kernel_size, 
+                              stride=stride, 
+                              padding=padding)
+    
+    bn = nn.BatchNorm2d(num_features=out_channels)
+    ReLU = nn.ReLU()
+    return conv, bn, ReLU
+
+
+class CategoricalDecoder(nn.Module):
+    def __init__(self, latent_dim:int, codes_per_latent:int) -> None:
+        super().__init__()
+        self.channels = [256, 128, 64, 32, 3]
+        self.kernel_size = 4
+        self.stride = 2
+        self.padding = 1
+        self.linear_in_dim = latent_dim*codes_per_latent
+
+        self.flattened_latent = nn.Flatten(start_dim=1, end_dim=-1)
+
+        self.current_dim = 64
+        layers = []
+        for channel in range(len(self.channels)-1):
+            self.current_dim = self.current_dim // (self.kernel_size-self.stride)
+            conv, bn, ReLU = upscale_layer(in_channels=self.channels[channel],
+                                           out_channels=self.channels[channel+1], 
+                                           kernel_size=self.kernel_size, 
+                                           stride=self.stride,
+                                           padding=self.padding)
+            
+            if self.channels[channel] != 32:
+                layers.append(conv)
+                layers.append(bn)
+                layers.append(ReLU)
+            else:
+                layers.append(conv)
+
+        self.upscale_features = nn.Sequential(*layers)
+        self.linear = nn.Linear(in_features=self.linear_in_dim, out_features=self.channels[0]*self.current_dim*self.current_dim)
+
+
+    def forward(self, latent: torch.Tensor) -> torch.Tensor:
+        flattened_latents = self.flattened_latent(latent)
+        projected_features = self.linear(flattened_latents)
+        reshaped_features = projected_features.reshape(-1, self.channels[0], self.current_dim, self.current_dim)
+        upscaled_features = self.upscale_features(reshaped_features)
+        return upscaled_features
