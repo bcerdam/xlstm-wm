@@ -14,6 +14,6 @@ def reshape_observation(observation:np.ndarray) -> np.ndarray:
     return reshaped_observation
 
 
-def random_replay_batch(atari_dataset:AtariDataset, batch_size:int, sequence_length:int) -> torch.tensor:
+def random_replay_batch(atari_dataset:AtariDataset, batch_size:int, sequence_length:int) -> torch.Tensor:
     indices = torch.randint(high=len(atari_dataset)-sequence_length, size=(batch_size,))
     return default_collate([atari_dataset[i] for i in indices])

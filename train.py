@@ -8,6 +8,7 @@ from scripts.data_related.atari_dataset import AtariDataset
 from scripts.utils.tensor_utils import random_replay_batch
 from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.categorical_vae.encoder_fwd_pass import forward_pass_encoder
+from scripts.models.categorical_vae.sampler import sample
 
 
 if __name__ == '__main__':
@@ -43,7 +44,6 @@ if __name__ == '__main__':
                             terminations=terminations)
         atari_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=SEQUENCE_LENGTH)
 
-        # [(B, L, C, W, H), (B, L, 1), (B, L, R), (B, L, T)]
         observations_batch, actions_batch, rewards_batch, terminations_batch = random_replay_batch(atari_dataset=atari_dataset, 
                                                                                                    batch_size=BATCH_SIZE, 
                                                                                                    sequence_length=SEQUENCE_LENGTH)
@@ -53,6 +53,6 @@ if __name__ == '__main__':
                                              batch_size=BATCH_SIZE, 
                                              sequence_length=SEQUENCE_LENGTH, 
                                              latent_dim=LATENT_DIM, 
-                                             codes_per_latent=CODES_PER_LATENT)
-        
-        # (32, 64, 32, 32) -> Sample
+                                             codes_per_latent=CODES_PER_LATENT)        
+
+        latents_sampled_batch = sample(latents_batch=latents_batch)
