@@ -59,15 +59,15 @@ if __name__ == '__main__':
                                                                                                    device=DEVICE)
 
         # Train World Model
-        categorical_autoencoder_reconstruction_loss = autoencoder_step(categorical_encoder=categorical_encoder, 
-                                                                       categorical_decoder=categorical_decoder, 
-                                                                       observations_batch=observations_batch, 
-                                                                       batch_size=BATCH_SIZE, 
-                                                                       sequence_length=SEQUENCE_LENGTH, 
-                                                                       latent_dim=LATENT_DIM, 
-                                                                       codes_per_latent=CODES_PER_LATENT,
-                                                                       optimizer=OPTIMIZER,
-                                                                       scaler=SCALER)
+        categorical_autoencoder_reconstruction_loss, latents_sampled_batch = autoencoder_step(categorical_encoder=categorical_encoder, 
+                                                                                              categorical_decoder=categorical_decoder, 
+                                                                                              observations_batch=observations_batch, 
+                                                                                              batch_size=BATCH_SIZE, 
+                                                                                              sequence_length=SEQUENCE_LENGTH, 
+                                                                                              latent_dim=LATENT_DIM, 
+                                                                                              codes_per_latent=CODES_PER_LATENT,
+                                                                                              optimizer=OPTIMIZER,
+                                                                                              scaler=SCALER)
                 
         # Train Agent
         

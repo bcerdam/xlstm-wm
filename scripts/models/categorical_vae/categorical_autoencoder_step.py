@@ -49,4 +49,4 @@ def autoencoder_step(categorical_encoder:CategoricalEncoder,
     scaler.step(optimizer)
     scaler.update()
 
-    return reconstruction_loss.item()
+    return reconstruction_loss.item(), latents_sampled_batch
