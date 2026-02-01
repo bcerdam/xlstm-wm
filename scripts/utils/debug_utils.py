@@ -2,6 +2,13 @@ import h5py
 import cv2
 import os
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+import torch
+from typing import List
+from scripts.models.categorical_vae.encoder_fwd_pass import forward_pass_encoder
+from scripts.models.categorical_vae.sampler import sample
+from scripts.models.categorical_vae.decoder_fwd_pass import forward_pass_decoder
 
 
 def inspect_dataset(h5_path:str) -> None:
@@ -33,6 +40,49 @@ def rollout_video(h5_path:str, start_idx:int, steps:int, video_fps:int, output_p
         for frame in rollout_obs:
             out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
         out.release()
+
+
+def plot_current_loss(new_losses: List[float], training_steps_per_epoch: int, epochs: int) -> None:
+    epoch_mean_loss = np.array(new_losses).mean()
+    
+    output_dir = 'output/logs'
+    os.makedirs(output_dir, exist_ok=True)
+    history_path = os.path.join(output_dir, 'loss_history.npy')
+
+    if os.path.exists(history_path):
+        try:
+            loss_history = np.load(history_path).tolist()
+        except:
+            loss_history = []
+    else:
+        loss_history = []
+
+    loss_history.append(epoch_mean_loss)
+    np.save(history_path, np.array(loss_history))
+
+
+    max_x = epochs * training_steps_per_epoch
+    x_values = np.arange(1, len(loss_history) + 1) * training_steps_per_epoch
+
+    plt.figure(figsize=(10, 6))
+    plt.style.use('default') 
+    plt.plot(x_values, loss_history, color='black', linewidth=1.5, linestyle='-')
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.xlim(0, max_x)
+    
+    ax = plt.gca()
+    def k_formatter(x, pos):
+        return f'{int(x/1000)}K'
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(k_formatter))
+    
+    plt.xlabel("Total Training Steps")
+    plt.ylabel("Epoch Mean Loss")
+    plt.title(f"Training Progress (Epoch {len(loss_history)})")
+    
+    output_path = os.path.join(output_dir, 'loss_plot.jpeg')
+    plt.savefig(output_path, format='jpeg', dpi=150, bbox_inches='tight')
+    plt.close()
+
 
 if __name__ == '__main__':
     h5_path = 'data/replay_buffer.h5'

@@ -1,6 +1,6 @@
 train:
-  epochs: 100
-  training_steps_per_epoch: 400
+  epochs: 500
+  training_steps_per_epoch: 200
   batch_size: 32
   sequence_length: 64
   latent_dim: 32

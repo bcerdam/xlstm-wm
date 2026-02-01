@@ -7,6 +7,7 @@ from scripts.data_related.enviroment_steps import gather_steps
 from scripts.data_related.replay_buffer import update_replay_buffer
 from scripts.data_related.atari_dataset import AtariDataset
 from scripts.utils.tensor_utils import random_replay_batch
+from scripts.utils.debug_utils import plot_current_loss, save_checkpoint, visualize_reconstruction
 from scripts.models.categorical_vae.categorical_autoencoder_step import autoencoder_step
 from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.categorical_vae.encoder_fwd_pass import forward_pass_encoder
@@ -31,8 +32,12 @@ if __name__ == '__main__':
     if os.path.exists('data'):
             shutil.rmtree('data')
 
+    if os.path.exists('output/logs'):
+        shutil.rmtree('output/logs')
+
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     EPOCHS = train_cfg['epochs']
+    TRAINING_STEPS_PER_EPOCH = train_cfg['training_steps_per_epoch']
     REPLAY_BUFFER_PATH = dataset_cfg['replay_buffer_path']
     BATCH_SIZE = train_cfg['batch_size']
     SEQUENCE_LENGTH = train_cfg['sequence_length']
@@ -45,6 +50,9 @@ if __name__ == '__main__':
     OPTIMIZER = torch.optim.Adam(list(categorical_encoder.parameters()) + list(categorical_decoder.parameters()), lr=WORLD_MODEL_LEARNING_RATE)
     SCALER = torch.amp.GradScaler(enabled=True)
     for epoch in range(EPOCHS):
+        if epoch % 100 == 0:
+             print(f'Training Epoch: {epoch}...')
+
         # Gather data
         observations, actions, rewards, terminations = gather_steps(**env_cfg)
         update_replay_buffer(replay_buffer_path=REPLAY_BUFFER_PATH, 
@@ -53,21 +61,30 @@ if __name__ == '__main__':
                             rewards=rewards, 
                             terminations=terminations)
         atari_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=SEQUENCE_LENGTH)
-        observations_batch, actions_batch, rewards_batch, terminations_batch = random_replay_batch(atari_dataset=atari_dataset, 
-                                                                                                   batch_size=BATCH_SIZE, 
-                                                                                                   sequence_length=SEQUENCE_LENGTH,
-                                                                                                   device=DEVICE)
 
-        # Train World Model
-        categorical_autoencoder_reconstruction_loss, latents_sampled_batch = autoencoder_step(categorical_encoder=categorical_encoder, 
-                                                                                              categorical_decoder=categorical_decoder, 
-                                                                                              observations_batch=observations_batch, 
-                                                                                              batch_size=BATCH_SIZE, 
-                                                                                              sequence_length=SEQUENCE_LENGTH, 
-                                                                                              latent_dim=LATENT_DIM, 
-                                                                                              codes_per_latent=CODES_PER_LATENT,
-                                                                                              optimizer=OPTIMIZER,
-                                                                                              scaler=SCALER)
-                
-        # Train Agent
-        
+        epoch_loss_history = []
+        for step in range(TRAINING_STEPS_PER_EPOCH):
+            observations_batch, actions_batch, rewards_batch, terminations_batch = random_replay_batch(atari_dataset=atari_dataset, 
+                                                                                                    batch_size=BATCH_SIZE, 
+                                                                                                    sequence_length=SEQUENCE_LENGTH,
+                                                                                                    device=DEVICE)
+
+            # Train World Model
+            categorical_autoencoder_reconstruction_loss, latents_sampled_batch = autoencoder_step(categorical_encoder=categorical_encoder, 
+                                                                                                categorical_decoder=categorical_decoder, 
+                                                                                                observations_batch=observations_batch, 
+                                                                                                batch_size=BATCH_SIZE, 
+                                                                                                sequence_length=SEQUENCE_LENGTH, 
+                                                                                                latent_dim=LATENT_DIM, 
+                                                                                                codes_per_latent=CODES_PER_LATENT,
+                                                                                                optimizer=OPTIMIZER,
+                                                                                                scaler=SCALER)
+            epoch_loss_history.append(categorical_autoencoder_reconstruction_loss)
+                    
+            # Train Agent
+
+
+        # Metrics
+        plot_current_loss(new_losses=epoch_loss_history, 
+                            training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
+                            epochs=EPOCHS)
