@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+import lpips
 from .encoder import CategoricalEncoder
 from .decoder import CategoricalDecoder
 from .encoder_fwd_pass import forward_pass_encoder
@@ -15,7 +16,8 @@ def autoencoder_step(categorical_encoder:CategoricalEncoder,
                      latent_dim:int, 
                      codes_per_latent:int,
                      optimizer:torch.optim.Optimizer, 
-                     scaler:torch.amp.GradScaler) -> float:
+                     scaler:torch.amp.GradScaler, 
+                     lpips_loss_fn:lpips.LPIPS) -> float:
     
     categorical_encoder.train()
     categorical_decoder.train()
@@ -38,9 +40,13 @@ def autoencoder_step(categorical_encoder:CategoricalEncoder,
                                                                 codes_per_latent=codes_per_latent)
         
         reconstruction_loss = F.mse_loss(reconstructed_observations_batch, observations_batch)
+        perceptual_loss = lpips_loss_fn(observations_batch.view(-1, 3, 64, 64), 
+                                        reconstructed_observations_batch.view(-1, 3, 64, 64)).mean()
+        total_loss = reconstruction_loss + 0.2 * perceptual_loss
+        
     
     optimizer.zero_grad(set_to_none=True)
-    scaler.scale(reconstruction_loss).backward()
+    scaler.scale(total_loss).backward()
     scaler.unscale_(optimizer)
     
     torch.nn.utils.clip_grad_norm_(categorical_encoder.parameters(), 1000.0)
@@ -49,4 +55,4 @@ def autoencoder_step(categorical_encoder:CategoricalEncoder,
     scaler.step(optimizer)
     scaler.update()
 
-    return reconstruction_loss.item(), latents_sampled_batch
+    return total_loss.item(), latents_sampled_batch

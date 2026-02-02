@@ -48,6 +48,7 @@ class CategoricalDecoder(nn.Module):
                 layers.append(ReLU)
             else:
                 layers.append(conv)
+                layers.append(nn.Tanh())
 
         self.upscale_features = nn.Sequential(*layers)
         self.linear = nn.Linear(in_features=self.linear_in_dim, out_features=self.channels[0]*self.current_dim*self.current_dim)

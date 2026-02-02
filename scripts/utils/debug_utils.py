@@ -5,10 +5,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import torch
+import sys
 from typing import List
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
 from scripts.models.categorical_vae.encoder_fwd_pass import forward_pass_encoder
 from scripts.models.categorical_vae.sampler import sample
 from scripts.models.categorical_vae.decoder_fwd_pass import forward_pass_decoder
+from scripts.data_related.atari_dataset import AtariDataset
+from scripts.models.categorical_vae.encoder import CategoricalEncoder
+from scripts.models.categorical_vae.decoder import CategoricalDecoder
 
 
 def inspect_dataset(h5_path:str) -> None:
@@ -84,12 +93,82 @@ def plot_current_loss(new_losses: List[float], training_steps_per_epoch: int, ep
     plt.close()
 
 
+def save_checkpoint(encoder, decoder, epoch, path="output/checkpoints"):
+    os.makedirs(path, exist_ok=True)
+    torch.save({
+        'epoch': epoch,
+        'encoder_state_dict': encoder.state_dict(),
+        'decoder_state_dict': decoder.state_dict(),
+    }, os.path.join(path, f"checkpoint_autoencoder_epoch_{epoch}.pth"))
+
+
+def visualize_reconstruction(dataset_path:str, 
+                             weights_path:str, 
+                             device:torch.device, 
+                             sequence_length:int, 
+                             latent_dim:int, 
+                             codes_per_latent:int, 
+                             epoch:int,
+                             video_path="output/videos") -> None:
+
+    os.makedirs(video_path, exist_ok=True)
+
+    dataset = AtariDataset(replay_buffer_path=dataset_path, sequence_length=sequence_length)
+    encoder = CategoricalEncoder(latent_dim=latent_dim, codes_per_latent=codes_per_latent).to(device)
+    decoder = CategoricalDecoder(latent_dim=latent_dim, codes_per_latent=codes_per_latent).to(device)
+
+    checkpoint = torch.load(weights_path, map_location=device)
+    encoder.load_state_dict(checkpoint['encoder_state_dict'])
+    decoder.load_state_dict(checkpoint['decoder_state_dict'])
+
+    encoder.eval()
+    decoder.eval()
+    
+    idx = np.random.randint(0, len(dataset) - sequence_length)
+    obs_seq, _, _, _ = dataset[idx] 
+    obs_seq = torch.from_numpy(obs_seq)
+        
+    model_input = obs_seq.unsqueeze(0).to(device)
+    with torch.no_grad():
+        latents = forward_pass_encoder(encoder, model_input, 1, sequence_length, latent_dim, codes_per_latent)
+        sampled_latents = sample(latents)
+        reconstructions = forward_pass_decoder(decoder, sampled_latents, 1, sequence_length, latent_dim, codes_per_latent)
+
+    model_input = model_input.cpu()
+    reconstructions = reconstructions.cpu()
+
+    orig_np = (model_input[0].permute(0, 2, 3, 1).numpy() + 1) * 127.5
+    recon_np = (reconstructions[0].permute(0, 2, 3, 1).numpy() + 1) * 127.5
+
+    orig_np = orig_np.astype(np.uint8)
+    recon_np = recon_np.astype(np.uint8)
+
+    save_file = os.path.join(video_path, f"epoch_{epoch}_reconstruction.mp4")
+    L, height, width, _ = orig_np.shape
+    
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(save_file, fourcc, 15.0, (width * 2, height))
+
+    for t in range(L):
+        frame_orig = cv2.cvtColor(orig_np[t], cv2.COLOR_RGB2BGR)
+        frame_recon = cv2.cvtColor(recon_np[t], cv2.COLOR_RGB2BGR)
+        
+        combined_frame = np.concatenate((frame_orig, frame_recon), axis=1)
+        out.write(combined_frame)
+
+    out.release()
+
+
 if __name__ == '__main__':
     h5_path = 'data/replay_buffer.h5'
     start_idx = 200
     steps = 100
     video_fps = 15
     output_path = 'output/video/rollout_video.mp4'
+    sequence_length = 64
+    latent_dim = 32
+    codes_per_latent = 32
+    epoch = 100
 
     # inspect_dataset(h5_path=h5_path)
 
@@ -98,3 +177,11 @@ if __name__ == '__main__':
     #               steps=steps,
     #               video_fps=video_fps, 
     #               output_path=output_path)
+
+    visualize_reconstruction(dataset_path='data/replay_buffer.h5', 
+                             weights_path='output/checkpoints/checkpoint_autoencoder_epoch_100.pth', 
+                             device='cuda',
+                             sequence_length=sequence_length, 
+                             latent_dim=latent_dim, 
+                             codes_per_latent=codes_per_latent, 
+                             epoch=epoch)

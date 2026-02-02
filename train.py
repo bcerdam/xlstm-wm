@@ -3,17 +3,15 @@ import argparse
 import yaml
 import os
 import shutil
+import lpips
 from scripts.data_related.enviroment_steps import gather_steps
 from scripts.data_related.replay_buffer import update_replay_buffer
 from scripts.data_related.atari_dataset import AtariDataset
 from scripts.utils.tensor_utils import random_replay_batch
-from scripts.utils.debug_utils import plot_current_loss, save_checkpoint, visualize_reconstruction
+from scripts.utils.debug_utils import plot_current_loss, save_checkpoint
 from scripts.models.categorical_vae.categorical_autoencoder_step import autoencoder_step
 from scripts.models.categorical_vae.encoder import CategoricalEncoder
-from scripts.models.categorical_vae.encoder_fwd_pass import forward_pass_encoder
-from scripts.models.categorical_vae.sampler import sample
 from scripts.models.categorical_vae.decoder import CategoricalDecoder
-from scripts.models.categorical_vae.decoder_fwd_pass import forward_pass_decoder
 
 
 if __name__ == '__main__':
@@ -47,6 +45,7 @@ if __name__ == '__main__':
 
     categorical_encoder = CategoricalEncoder(latent_dim=LATENT_DIM, codes_per_latent=CODES_PER_LATENT).to(DEVICE)
     categorical_decoder = CategoricalDecoder(latent_dim=LATENT_DIM, codes_per_latent=CODES_PER_LATENT).to(DEVICE)
+    lpips_model = lpips.LPIPS(net='alex').to(DEVICE).requires_grad_(False)
     OPTIMIZER = torch.optim.Adam(list(categorical_encoder.parameters()) + list(categorical_decoder.parameters()), lr=WORLD_MODEL_LEARNING_RATE)
     SCALER = torch.amp.GradScaler(enabled=True)
     for epoch in range(EPOCHS):
@@ -78,7 +77,8 @@ if __name__ == '__main__':
                                                                                                 latent_dim=LATENT_DIM, 
                                                                                                 codes_per_latent=CODES_PER_LATENT,
                                                                                                 optimizer=OPTIMIZER,
-                                                                                                scaler=SCALER)
+                                                                                                scaler=SCALER, 
+                                                                                                lpips_loss_fn=lpips_model)
             epoch_loss_history.append(categorical_autoencoder_reconstruction_loss)
                     
             # Train Agent
@@ -88,3 +88,16 @@ if __name__ == '__main__':
         plot_current_loss(new_losses=epoch_loss_history, 
                             training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
                             epochs=EPOCHS)
+        
+        if epoch == 25:
+             save_checkpoint(encoder=categorical_encoder, decoder=categorical_decoder, epoch=epoch)
+
+        elif epoch == 50:
+             save_checkpoint(encoder=categorical_encoder, decoder=categorical_decoder, epoch=epoch)
+
+        elif epoch == 75:
+             save_checkpoint(encoder=categorical_encoder, decoder=categorical_decoder, epoch=epoch)
+
+        elif epoch == 100:
+             save_checkpoint(encoder=categorical_encoder, decoder=categorical_decoder, epoch=epoch)
+             break
