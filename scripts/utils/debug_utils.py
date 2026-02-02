@@ -73,9 +73,9 @@ def plot_current_loss(new_losses: List[float], training_steps_per_epoch: int, ep
     max_x = epochs * training_steps_per_epoch
     x_values = np.arange(1, len(loss_history) + 1) * training_steps_per_epoch
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(6, 2))
     plt.style.use('default') 
-    plt.plot(x_values, loss_history, color='black', linewidth=1.5, linestyle='-')
+    plt.plot(x_values, loss_history, color='black', linewidth=0.75, linestyle='-')
     plt.grid(True, linestyle='--', alpha=0.6)
     plt.xlim(0, max_x)
     
@@ -84,11 +84,13 @@ def plot_current_loss(new_losses: List[float], training_steps_per_epoch: int, ep
         return f'{int(x/1000)}K'
     ax.xaxis.set_major_formatter(ticker.FuncFormatter(k_formatter))
     
-    plt.xlabel("Total Training Steps")
-    plt.ylabel("Epoch Mean Loss")
-    plt.title(f"Training Progress (Epoch {len(loss_history)})")
+    plt.xlabel("Total Training Steps", fontsize=6)
+    plt.ylabel("Epoch Mean Loss", fontsize=6)
+    plt.title(f"Training Progress (Epoch {len(loss_history)})", fontsize=8)
+    plt.tick_params(axis='both', which='major', labelsize=4)
     
     output_path = os.path.join(output_dir, 'loss_plot.jpeg')
+    plt.tight_layout()
     plt.savefig(output_path, format='jpeg', dpi=150, bbox_inches='tight')
     plt.close()
 
