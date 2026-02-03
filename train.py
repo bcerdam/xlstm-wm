@@ -95,16 +95,13 @@ if __name__ == '__main__':
                                                                                                 scaler=SCALER, 
                                                                                                 lpips_loss_fn=lpips_model)
             
-            tokens = tokenize(tokenizer=tokenizer, 
+            tokens_batch = tokenize(tokenizer=tokenizer, 
                               latents_sampled_batch=latents_sampled_batch, 
                               actions_batch=actions_batch)
             
-            # pos embeddings
+            # learn_dynamics(tokens_batch=tokens_batch)
             
             epoch_loss_history.append(categorical_autoencoder_reconstruction_loss)
-                    
-            # Train Agent
-
 
         # Metrics
         plot_current_loss(new_losses=epoch_loss_history, 
