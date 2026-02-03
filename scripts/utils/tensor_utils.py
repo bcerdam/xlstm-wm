@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+import gymnasium as gym
+import ale_py
 from ..data_related.atari_dataset import AtariDataset
 from torch.utils.data import default_collate
 
@@ -18,3 +20,10 @@ def random_replay_batch(atari_dataset:AtariDataset, batch_size:int, sequence_len
     indices = torch.randint(high=len(atari_dataset)-sequence_length, size=(batch_size,))
     batch = default_collate([atari_dataset[i] for i in indices])
     return [item.to(device) for item in batch]
+
+
+def env_n_actions(env_name:str) -> int:
+    gym.register_envs(ale_py)
+    env = gym.make(id=env_name)
+    n_actions = env.action_space.n
+    return n_actions

@@ -31,12 +31,15 @@ def gather_steps(env_name: str,
     all_terminations = [] 
     observation, info = env.reset()
     for step in range(env_steps_per_epoch):
+        action_array = np.zeros(env.action_space.n, dtype=np.float32)
         random_action = env.action_space.sample()
+        action_array[random_action] = 1.0
+
         observation, reward, termination, truncated, info = env.step(random_action)
         observation = reshape_observation(normalize_observation(observation=observation))
 
         all_observations.append(observation)
-        all_actions.append(random_action)
+        all_actions.append(action_array)
         all_rewards.append(reward)
         all_terminations.append(termination)
 

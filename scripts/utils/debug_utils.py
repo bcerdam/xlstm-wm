@@ -163,7 +163,7 @@ def visualize_reconstruction(dataset_path:str,
 
 if __name__ == '__main__':
     h5_path = 'data/replay_buffer.h5'
-    start_idx = 200
+    start_idx = 500
     steps = 100
     video_fps = 15
     output_path = 'output/video/rollout_video.mp4'
