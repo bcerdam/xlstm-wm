@@ -14,6 +14,8 @@ from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.categorical_vae.decoder import CategoricalDecoder
 from scripts.models.sequence_preprocessing.tokenizer import Tokenizer
 from scripts.models.sequence_preprocessing.tokenizer_fwd_pass import tokenize
+from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
+from scripts.models.dynamics_modeling.dynamics_model_step import dm_step
 
 
 if __name__ == '__main__':
@@ -47,6 +49,13 @@ if __name__ == '__main__':
     EMBEDDING_DIM = train_cfg['embedding_dim']
     ENV_NAME = env_cfg['env_name']
     ENV_ACTIONS = env_n_actions(ENV_NAME)
+    NUM_BLOCKS = train_cfg['num_blocks']
+    SLSTM_AT = train_cfg['slstm_at']
+    DROPOUT = train_cfg['dropout']
+    ADD_POST_BLOCKS_NORM = train_cfg['add_post_blocks_norm']
+    CONV1D_KERNEL_SIZE = train_cfg['conv1d_kernel_size']
+    QKV_PROJ_BLOCKSIZE = train_cfg['qkv_proj_blocksize']
+    NUM_HEADS = train_cfg['num_heads']
 
     categorical_encoder = CategoricalEncoder(latent_dim=LATENT_DIM, 
                                              codes_per_latent=CODES_PER_LATENT).to(DEVICE)
@@ -57,7 +66,19 @@ if __name__ == '__main__':
                           env_actions=ENV_ACTIONS, 
                           embedding_dim=EMBEDDING_DIM, 
                           sequence_length=SEQUENCE_LENGTH).to(DEVICE)
+    dynamics_model = XLSTM_DM(sequence_length=SEQUENCE_LENGTH, 
+                              num_blocks=NUM_BLOCKS, 
+                              embedding_dim=EMBEDDING_DIM, 
+                              slstm_at=SLSTM_AT, 
+                              dropout=DROPOUT, 
+                              add_post_blocks_norm=ADD_POST_BLOCKS_NORM, 
+                              conv1d_kernel_size=CONV1D_KERNEL_SIZE, 
+                              qkv_proj_blocksize=QKV_PROJ_BLOCKSIZE, 
+                              num_heads=NUM_HEADS, 
+                              latent_dim=LATENT_DIM, 
+                              codes_per_latent=CODES_PER_LATENT).to(DEVICE)
     lpips_model = lpips.LPIPS(net='alex').to(DEVICE).requires_grad_(False)
+
     OPTIMIZER = torch.optim.Adam(list(categorical_encoder.parameters()) + 
                                  list(categorical_decoder.parameters()) +
                                  list(tokenizer.parameters()),
@@ -79,31 +100,38 @@ if __name__ == '__main__':
         epoch_loss_history = []
         for step in range(TRAINING_STEPS_PER_EPOCH):
             observations_batch, actions_batch, rewards_batch, terminations_batch = random_replay_batch(atari_dataset=atari_dataset, 
-                                                                                                    batch_size=BATCH_SIZE, 
-                                                                                                    sequence_length=SEQUENCE_LENGTH,
-                                                                                                    device=DEVICE)
+                                                                                                       batch_size=BATCH_SIZE, 
+                                                                                                       sequence_length=SEQUENCE_LENGTH,
+                                                                                                       device=DEVICE)
             
             # Train World Model
             categorical_autoencoder_reconstruction_loss, latents_sampled_batch = autoencoder_step(categorical_encoder=categorical_encoder, 
-                                                                                                categorical_decoder=categorical_decoder, 
-                                                                                                observations_batch=observations_batch, 
-                                                                                                batch_size=BATCH_SIZE, 
-                                                                                                sequence_length=SEQUENCE_LENGTH, 
-                                                                                                latent_dim=LATENT_DIM, 
-                                                                                                codes_per_latent=CODES_PER_LATENT,
-                                                                                                optimizer=OPTIMIZER,
-                                                                                                scaler=SCALER, 
-                                                                                                lpips_loss_fn=lpips_model)
+                                                                                                  categorical_decoder=categorical_decoder, 
+                                                                                                  observations_batch=observations_batch, 
+                                                                                                  batch_size=BATCH_SIZE, 
+                                                                                                  sequence_length=SEQUENCE_LENGTH, 
+                                                                                                  latent_dim=LATENT_DIM, 
+                                                                                                  codes_per_latent=CODES_PER_LATENT,
+                                                                                                  optimizer=OPTIMIZER,
+                                                                                                  scaler=SCALER, 
+                                                                                                  lpips_loss_fn=lpips_model)
             
             tokens_batch = tokenize(tokenizer=tokenizer, 
-                              latents_sampled_batch=latents_sampled_batch, 
-                              actions_batch=actions_batch)
+                                    latents_sampled_batch=latents_sampled_batch, 
+                                    actions_batch=actions_batch)
             
-            # learn_dynamics(tokens_batch=tokens_batch)
+            # autoencoder_step and dm_step need to return logits, and then apply loss in unison
+
+            reward_loss, termination_loss, dynamic_loss, representation_loss = dm_step(dynamics_model=dynamics_model, 
+                                                                                       tokens_batch=tokens_batch, 
+                                                                                       rewards_batch=rewards_batch, 
+                                                                                       terminations_batch=terminations_batch)
             
-            epoch_loss_history.append(categorical_autoencoder_reconstruction_loss)
+            # total_loss = total_loss(...) (Includes gradient step)
+
+            # epoch_loss_history.append(all_losses)
 
         # Metrics
-        plot_current_loss(new_losses=epoch_loss_history, 
-                          training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
-                          epochs=EPOCHS)
+        # plot_current_loss(new_losses=epoch_loss_history, 
+        #                   training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
+        #                   epochs=EPOCHS)

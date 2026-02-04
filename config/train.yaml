@@ -7,3 +7,10 @@ train:
   codes_per_latent: 32
   world_model_learning_rate: 0.0001
   embedding_dim: 256
+  num_blocks: 2
+  slstm_at: []
+  dropout: 0.1
+  add_post_blocks_norm: True
+  conv1d_kernel_size: 4
+  num_heads: 4
+  qkv_proj_blocksize: 4

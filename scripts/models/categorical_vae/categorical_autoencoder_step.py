@@ -42,17 +42,6 @@ def autoencoder_step(categorical_encoder:CategoricalEncoder,
         reconstruction_loss = F.mse_loss(reconstructed_observations_batch, observations_batch)
         perceptual_loss = lpips_loss_fn(observations_batch.view(-1, 3, 64, 64), 
                                         reconstructed_observations_batch.view(-1, 3, 64, 64)).mean()
-        total_loss = reconstruction_loss + 0.2 * perceptual_loss
-        
+        reconstruction_loss = reconstruction_loss + 0.2 * perceptual_loss
     
-    optimizer.zero_grad(set_to_none=True)
-    scaler.scale(total_loss).backward()
-    scaler.unscale_(optimizer)
-    
-    torch.nn.utils.clip_grad_norm_(categorical_encoder.parameters(), 1000.0)
-    torch.nn.utils.clip_grad_norm_(categorical_decoder.parameters(), 1000.0)
-    
-    scaler.step(optimizer)
-    scaler.update()
-
-    return total_loss.item(), latents_sampled_batch
+    return reconstruction_loss, latents_sampled_batch
