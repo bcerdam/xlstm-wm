@@ -22,10 +22,9 @@ def total_loss_step(reconstruction_loss:torch.Tensor,
                     scaler:torch.amp.grad_scaler) -> torch.Tensor:
             
     sum_of_losses = (reconstruction_loss+reward_loss+termination_loss+dynamics_beta*dynamics_loss+representations_beta*representation_loss)
-    mean_loss = (1/(batch_size*sequence_length)) * sum_of_losses
 
     optimizer.zero_grad(set_to_none=True)
-    scaler.scale(mean_loss).backward()
+    scaler.scale(sum_of_losses).backward()
     scaler.unscale_(optimizer)
     
     torch.nn.utils.clip_grad_norm_(categorical_encoder.parameters(), 1000.0)
@@ -36,4 +35,4 @@ def total_loss_step(reconstruction_loss:torch.Tensor,
     scaler.step(optimizer)
     scaler.update()
 
-    return mean_loss
+    return sum_of_losses

@@ -85,7 +85,8 @@ if __name__ == '__main__':
 
     OPTIMIZER = torch.optim.Adam(list(categorical_encoder.parameters()) + 
                                  list(categorical_decoder.parameters()) +
-                                 list(tokenizer.parameters()),
+                                 list(tokenizer.parameters()) + 
+                                 list(dynamics_model.parameters()),
                                  lr=WORLD_MODEL_LEARNING_RATE)
     SCALER = torch.amp.GradScaler(enabled=True)
     for epoch in range(EPOCHS):

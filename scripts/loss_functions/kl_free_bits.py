@@ -10,6 +10,6 @@ def dynamics_representation_loss(free_bits:int,
     
     next_latent_gt_distribution = OneHotCategorical(logits=next_latent_gt)
     next_latent_pred_distribution = OneHotCategorical(logits=next_latent_pred)
-    mean_kl_div = kl_divergence(p=next_latent_gt_distribution, q=next_latent_pred_distribution).sum(dim=-1).mean()
-    loss_value = torch.max(torch.ones_like(mean_kl_div)*free_bits, mean_kl_div)
-    return loss_value, mean_kl_div
+    kl_div = kl_divergence(p=next_latent_gt_distribution, q=next_latent_pred_distribution).sum(dim=-1)
+    loss_value = torch.max(torch.ones_like(kl_div)*free_bits, kl_div)
+    return loss_value.mean(), kl_div.mean()

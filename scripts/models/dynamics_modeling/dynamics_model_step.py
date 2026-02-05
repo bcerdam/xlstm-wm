@@ -21,7 +21,7 @@ def dm_step(dynamics_model:XLSTM_DM,
         next_latents_pred, rewards_pred, terminations_pred = dynamics_model.forward(tokens_batch=tokens_batch)
         next_latents_pred = next_latents_pred.view(size=(batch_size, sequence_length, latent_dim, codes_per_latent))
 
-        rewards_loss = mse_loss(input=rewards_pred.squeeze(dim=-1), target=rewards_batch)
+        rewards_loss = mse_loss(input=rewards_pred.squeeze(dim=-1), target=rewards_batch.float())
 
         terminations_loss = binary_cross_entropy_with_logits(input=terminations_pred.squeeze(dim=-1), target=terminations_batch.float())
 
