@@ -63,7 +63,7 @@ class XLSTM_DM(nn.Module):
         self.latent_projection = nn.Linear(in_features=embedding_dim, out_features=latent_dim*codes_per_latent)
 
         self.reward_head_linear_1 = nn.Linear(in_features=embedding_dim, out_features=embedding_dim)
-        self.reward_head_linear_2 = nn.Linear(in_features=embedding_dim, out_features=255)
+        self.reward_head_linear_2 = nn.Linear(in_features=embedding_dim, out_features=1)
 
         self.termination_head_1 = nn.Linear(in_features=embedding_dim, out_features=embedding_dim)
         self.termination_head_2 = nn.Linear(in_features=embedding_dim, out_features=1)

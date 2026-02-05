@@ -17,7 +17,7 @@ def autoencoder_step(categorical_encoder:CategoricalEncoder,
                      codes_per_latent:int,
                      optimizer:torch.optim.Optimizer, 
                      scaler:torch.amp.GradScaler, 
-                     lpips_loss_fn:lpips.LPIPS) -> float:
+                     lpips_loss_fn:lpips.LPIPS) -> tuple[torch.Tensor, torch.Tensor]:
     
     categorical_encoder.train()
     categorical_decoder.train()

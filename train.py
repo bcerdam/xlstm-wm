@@ -16,6 +16,7 @@ from scripts.models.sequence_preprocessing.tokenizer import Tokenizer
 from scripts.models.sequence_preprocessing.tokenizer_fwd_pass import tokenize
 from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
 from scripts.models.dynamics_modeling.dynamics_model_step import dm_step
+from scripts.loss_functions.total_loss import total_loss_step
 
 
 if __name__ == '__main__':
@@ -56,6 +57,9 @@ if __name__ == '__main__':
     CONV1D_KERNEL_SIZE = train_cfg['conv1d_kernel_size']
     QKV_PROJ_BLOCKSIZE = train_cfg['qkv_proj_blocksize']
     NUM_HEADS = train_cfg['num_heads']
+    FREE_BITS = train_cfg['free_bits']
+    DYNAMICS_BETA = train_cfg['dynamics_beta']
+    REPRESENTATIONS_BETA = train_cfg['representations_beta']
 
     categorical_encoder = CategoricalEncoder(latent_dim=LATENT_DIM, 
                                              codes_per_latent=CODES_PER_LATENT).to(DEVICE)
@@ -122,13 +126,33 @@ if __name__ == '__main__':
             
             # autoencoder_step and dm_step need to return logits, and then apply loss in unison
 
-            reward_loss, termination_loss, dynamic_loss, representation_loss = dm_step(dynamics_model=dynamics_model, 
-                                                                                       tokens_batch=tokens_batch, 
-                                                                                       rewards_batch=rewards_batch, 
-                                                                                       terminations_batch=terminations_batch)
-            
-            # total_loss = total_loss(...) (Includes gradient step)
+            rewards_loss, terminations_loss, dynamics_loss, representations_loss, dynamics_kl_div, representations_kl_div = dm_step(dynamics_model=dynamics_model,
+                                                                                                                                    latents_batch=latents_sampled_batch, 
+                                                                                                                                    tokens_batch=tokens_batch, 
+                                                                                                                                    rewards_batch=rewards_batch, 
+                                                                                                                                    terminations_batch=terminations_batch, 
+                                                                                                                                    free_bits=FREE_BITS, 
+                                                                                                                                    batch_size=BATCH_SIZE, 
+                                                                                                                                    sequence_length=SEQUENCE_LENGTH, 
+                                                                                                                                    latent_dim=LATENT_DIM, 
+                                                                                                                                    codes_per_latent=CODES_PER_LATENT)
 
+            mean_total_loss = total_loss_step(reconstruction_loss=categorical_autoencoder_reconstruction_loss, 
+                                              reward_loss=rewards_loss, 
+                                              termination_loss=terminations_loss, 
+                                              dynamics_loss=dynamics_loss, 
+                                              representation_loss=representations_loss, 
+                                              batch_size=BATCH_SIZE, 
+                                              sequence_length=SEQUENCE_LENGTH, 
+                                              dynamics_beta=DYNAMICS_BETA, 
+                                              representations_beta=REPRESENTATIONS_BETA, 
+                                              categorical_encoder=categorical_encoder, 
+                                              categorical_decoder=categorical_decoder, 
+                                              tokenizer=tokenizer, 
+                                              dynamics_model=dynamics_model, 
+                                              optimizer=OPTIMIZER, 
+                                              scaler=SCALER)
+            
             # epoch_loss_history.append(all_losses)
 
         # Metrics
