@@ -4,7 +4,7 @@ from torch.distributions import  OneHotCategorical
 
 
 def latent_unimix(latents_batch:torch.Tensor, uniform_mixture_percentage:float) -> torch.Tensor:
-    number_of_latents = latents_batch.shape[2]
+    number_of_latents = latents_batch.shape[-1]
     stochastic_latents_batch = F.softmax(latents_batch, dim=-1)
     uniform_mixture = uniform_mixture_percentage*torch.ones_like(stochastic_latents_batch)/number_of_latents
     nn_mixture = (1.0-uniform_mixture_percentage)*stochastic_latents_batch
