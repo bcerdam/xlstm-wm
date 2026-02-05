@@ -163,10 +163,10 @@ def visualize_reconstruction(dataset_path:str,
 
 if __name__ == '__main__':
     h5_path = 'data/replay_buffer.h5'
-    start_idx = 500
-    steps = 100
+    start_idx = 0
+    steps = 200
     video_fps = 15
-    output_path = 'output/video/rollout_video.mp4'
+    output_path = 'output/videos/rollout/rollout_video_1.mp4'
     sequence_length = 64
     latent_dim = 32
     codes_per_latent = 32
@@ -174,16 +174,16 @@ if __name__ == '__main__':
 
     # inspect_dataset(h5_path=h5_path)
 
-    # rollout_video(h5_path=h5_path, 
-    #               start_idx=start_idx, 
-    #               steps=steps,
-    #               video_fps=video_fps, 
-    #               output_path=output_path)
+    rollout_video(h5_path=h5_path, 
+                  start_idx=start_idx, 
+                  steps=steps,
+                  video_fps=video_fps, 
+                  output_path=output_path)
 
-    visualize_reconstruction(dataset_path='data/replay_buffer.h5', 
-                             weights_path='output/checkpoints/checkpoint_autoencoder_epoch_100.pth', 
-                             device='cuda',
-                             sequence_length=sequence_length, 
-                             latent_dim=latent_dim, 
-                             codes_per_latent=codes_per_latent, 
-                             epoch=epoch)
+    # visualize_reconstruction(dataset_path='data/replay_buffer.h5', 
+    #                          weights_path='output/checkpoints/checkpoint_autoencoder_epoch_100.pth', 
+    #                          device='cuda',
+    #                          sequence_length=sequence_length, 
+    #                          latent_dim=latent_dim, 
+    #                          codes_per_latent=codes_per_latent, 
+    #                          epoch=epoch)

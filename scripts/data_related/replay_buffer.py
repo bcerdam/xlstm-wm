@@ -7,7 +7,8 @@ def update_replay_buffer(replay_buffer_path:str,
                          observations:List[np.ndarray], 
                          actions:List[np.int64], 
                          rewards:List[np.float64], 
-                         terminations:List[bool]) -> None:
+                         terminations:List[bool], 
+                         episode_starts:List[bool]) -> None:
     
     if os.path.dirname(replay_buffer_path):
         os.makedirs(os.path.dirname(replay_buffer_path), exist_ok=True)
@@ -16,7 +17,8 @@ def update_replay_buffer(replay_buffer_path:str,
         'observations': np.array(observations),
         'actions': np.array(actions),
         'rewards': np.array(rewards),
-        'terminations': np.array(terminations)
+        'terminations': np.array(terminations),
+        'episode_starts':np.array(episode_starts)
     }
 
     with h5py.File(replay_buffer_path, 'a') as f:

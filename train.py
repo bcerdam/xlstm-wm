@@ -81,7 +81,7 @@ if __name__ == '__main__':
                               num_heads=NUM_HEADS, 
                               latent_dim=LATENT_DIM, 
                               codes_per_latent=CODES_PER_LATENT).to(DEVICE)
-    lpips_model = lpips.LPIPS(net='alex').to(DEVICE).requires_grad_(False)
+    lpips_model = lpips.LPIPS(net='alex').to(DEVICE).requires_grad_(False).eval()
 
     OPTIMIZER = torch.optim.Adam(list(categorical_encoder.parameters()) + 
                                  list(categorical_decoder.parameters()) +
@@ -94,12 +94,13 @@ if __name__ == '__main__':
              print(f'Training Epoch: {epoch}...')
 
         # Gather data
-        observations, actions, rewards, terminations = gather_steps(**env_cfg)
+        observations, actions, rewards, terminations, episode_starts = gather_steps(**env_cfg)
         update_replay_buffer(replay_buffer_path=REPLAY_BUFFER_PATH, 
                             observations=observations, 
                             actions=actions,
                             rewards=rewards, 
-                            terminations=terminations)
+                            terminations=terminations, 
+                            episode_starts=episode_starts)
         atari_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=SEQUENCE_LENGTH)
 
         epoch_loss_history = []
