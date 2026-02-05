@@ -155,9 +155,20 @@ if __name__ == '__main__':
                                               optimizer=OPTIMIZER, 
                                               scaler=SCALER)
             
-            # epoch_loss_history.append(all_losses)
+            step_metrics = {
+                'total': mean_total_loss.item(),
+                'reconstruction': categorical_autoencoder_reconstruction_loss.item(),
+                'reward': rewards_loss.item(),
+                'termination': terminations_loss.item(),
+                'dynamics': dynamics_loss.item(),
+                'representation': representations_loss.item(),
+                'dynamics_kl': dynamics_kl_div.item(),
+                'representation_kl': representations_kl_div.item()
+            }
+            
+            epoch_loss_history.append(step_metrics)
 
         # Metrics
-        # plot_current_loss(new_losses=epoch_loss_history, 
-        #                   training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
-        #                   epochs=EPOCHS)
+        plot_current_loss(new_losses=epoch_loss_history, 
+                          training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
+                          epochs=EPOCHS)
