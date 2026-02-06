@@ -5,7 +5,7 @@ from .encoder import CategoricalEncoder
 from .decoder import CategoricalDecoder
 from .encoder_fwd_pass import forward_pass_encoder
 from .decoder_fwd_pass import forward_pass_decoder
-from .sampler import sample
+from .sampler import sample, latent_unimix
 
 
 def autoencoder_step(categorical_encoder:CategoricalEncoder, 
@@ -30,6 +30,7 @@ def autoencoder_step(categorical_encoder:CategoricalEncoder,
                                             latent_dim=latent_dim, 
                                             codes_per_latent=codes_per_latent)        
 
+        latents_batch_logits = latent_unimix(latents_batch=latents_batch, uniform_mixture_percentage=0.01)
         latents_sampled_batch = sample(latents_batch=latents_batch)
 
         reconstructed_observations_batch = forward_pass_decoder(categorical_decoder=categorical_decoder, 
@@ -44,4 +45,4 @@ def autoencoder_step(categorical_encoder:CategoricalEncoder,
                                         reconstructed_observations_batch.view(-1, 3, 64, 64)).mean()
         reconstruction_loss = reconstruction_loss + 0.2 * perceptual_loss
     
-    return reconstruction_loss, latents_sampled_batch
+    return reconstruction_loss, latents_sampled_batch, latents_batch_logits

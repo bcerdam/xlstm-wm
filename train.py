@@ -111,25 +111,24 @@ if __name__ == '__main__':
                                                                                                        device=DEVICE)
             
             # Train World Model
-            categorical_autoencoder_reconstruction_loss, latents_sampled_batch = autoencoder_step(categorical_encoder=categorical_encoder, 
-                                                                                                  categorical_decoder=categorical_decoder, 
-                                                                                                  observations_batch=observations_batch, 
-                                                                                                  batch_size=BATCH_SIZE, 
-                                                                                                  sequence_length=SEQUENCE_LENGTH, 
-                                                                                                  latent_dim=LATENT_DIM, 
-                                                                                                  codes_per_latent=CODES_PER_LATENT,
-                                                                                                  optimizer=OPTIMIZER,
-                                                                                                  scaler=SCALER, 
-                                                                                                  lpips_loss_fn=lpips_model)
+            categorical_autoencoder_reconstruction_loss, latents_sampled_batch, latents_batch_logits = autoencoder_step(categorical_encoder=categorical_encoder, 
+                                                                                                                        categorical_decoder=categorical_decoder, 
+                                                                                                                        observations_batch=observations_batch, 
+                                                                                                                        batch_size=BATCH_SIZE, 
+                                                                                                                        sequence_length=SEQUENCE_LENGTH, 
+                                                                                                                        latent_dim=LATENT_DIM, 
+                                                                                                                        codes_per_latent=CODES_PER_LATENT,
+                                                                                                                        optimizer=OPTIMIZER,
+                                                                                                                        scaler=SCALER, 
+                                                                                                                        lpips_loss_fn=lpips_model)
             
             tokens_batch = tokenize(tokenizer=tokenizer, 
                                     latents_sampled_batch=latents_sampled_batch, 
                                     actions_batch=actions_batch)
             
-            # autoencoder_step and dm_step need to return logits, and then apply loss in unison
 
             rewards_loss, terminations_loss, dynamics_loss, representations_loss, dynamics_kl_div, representations_kl_div = dm_step(dynamics_model=dynamics_model,
-                                                                                                                                    latents_batch=latents_sampled_batch, 
+                                                                                                                                    latents_batch=latents_batch_logits, 
                                                                                                                                     tokens_batch=tokens_batch, 
                                                                                                                                     rewards_batch=rewards_batch, 
                                                                                                                                     terminations_batch=terminations_batch, 
@@ -160,8 +159,8 @@ if __name__ == '__main__':
                 'reconstruction': categorical_autoencoder_reconstruction_loss.item(),
                 'reward': rewards_loss.item(),
                 'termination': terminations_loss.item(),
-                'dynamics': dynamics_loss.item(),
-                'representation': representations_loss.item(),
+                'dynamics': dynamics_loss.item()*DYNAMICS_BETA,
+                'representation': representations_loss.item()*REPRESENTATIONS_BETA,
                 'dynamics_kl': dynamics_kl_div.item(),
                 'representation_kl': representations_kl_div.item()
             }
