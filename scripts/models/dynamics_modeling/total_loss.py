@@ -1,7 +1,7 @@
 import torch
 from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.categorical_vae.decoder import CategoricalDecoder
-from scripts.models.sequence_preprocessing.tokenizer import Tokenizer
+from scripts.models.dynamics_modeling.tokenizer import Tokenizer
 from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
 
 

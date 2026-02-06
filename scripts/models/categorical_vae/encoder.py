@@ -54,9 +54,16 @@ class CategoricalEncoder(nn.Module):
         self.linear = nn.Linear(in_features=flattened_in_features, out_features=self.linear_projection_amount)
 
 
-    def forward(self, observation: torch.Tensor) -> torch.Tensor:
-        downscaled_features = self.downscale_features(observation)
+    def forward(self, observations_batch: torch.Tensor, 
+                      batch_size:int, 
+                      sequence_length:int, 
+                      latent_dim:int, 
+                      codes_per_latent:int) -> torch.Tensor:
+        
+        observations_batch = observations_batch.view(batch_size*sequence_length, 3, 64, 64)        
+        downscaled_features = self.downscale_features(observations_batch)
         flattened_features = self.flattened_downscale_features(downscaled_features)
         projected_features = self.linear(flattened_features)
         reshaped_features = projected_features.reshape(-1, *self.output_shape)
+        reshaped_features.view(batch_size, sequence_length, latent_dim, codes_per_latent)
         return reshaped_features

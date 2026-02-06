@@ -17,7 +17,7 @@ def sample_with_straight_through_gradients(log_probabilities:torch.Tensor) -> to
     return one_hot_distribution.sample() + one_hot_distribution.probs - one_hot_distribution.probs.detach()
 
 
-def sample(latents_batch:torch.Tensor) -> torch.Tensor:
+def sample(latents_batch:torch.Tensor, batch_size:int, sequence_length:int) -> torch.Tensor:
     uniform_mixture_percentage = 0.01
     log_probabilities = latent_unimix(latents_batch=latents_batch, uniform_mixture_percentage=uniform_mixture_percentage)
-    return sample_with_straight_through_gradients(log_probabilities=log_probabilities)
+    return sample_with_straight_through_gradients(log_probabilities=log_probabilities).view(batch_size, sequence_length, -1)

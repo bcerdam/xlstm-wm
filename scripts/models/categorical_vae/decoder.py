@@ -54,9 +54,16 @@ class CategoricalDecoder(nn.Module):
         self.linear = nn.Linear(in_features=self.linear_in_dim, out_features=self.channels[0]*self.current_dim*self.current_dim)
 
 
-    def forward(self, latent: torch.Tensor) -> torch.Tensor:
-        flattened_latents = self.flattened_latent(latent)
+    def forward(self, latents_batch: torch.Tensor, 
+                      batch_size:int, 
+                      sequence_length:int, 
+                      latent_dim:int, 
+                      codes_per_latent:int) -> torch.Tensor:
+        
+        latents_batch = latents_batch.view(batch_size*sequence_length, latent_dim, codes_per_latent)
+        flattened_latents = self.flattened_latent(latents_batch)
         projected_features = self.linear(flattened_latents)
         reshaped_features = projected_features.reshape(-1, self.channels[0], self.current_dim, self.current_dim)
         upscaled_features = self.upscale_features(reshaped_features)
+        upscaled_features = upscaled_features.view(batch_size, sequence_length, 3, 64, 64)
         return upscaled_features

@@ -3,46 +3,38 @@ import torch.nn.functional as F
 import lpips
 from .encoder import CategoricalEncoder
 from .decoder import CategoricalDecoder
-from .encoder_fwd_pass import forward_pass_encoder
-from .decoder_fwd_pass import forward_pass_decoder
-from .sampler import sample, latent_unimix
+from .sampler import sample
 
 
-def autoencoder_step(categorical_encoder:CategoricalEncoder, 
-                     categorical_decoder:CategoricalDecoder, 
-                     observations_batch:torch.Tensor, 
-                     batch_size:int, 
-                     sequence_length:int, 
-                     latent_dim:int, 
-                     codes_per_latent:int,
-                     optimizer:torch.optim.Optimizer, 
-                     scaler:torch.amp.GradScaler, 
-                     lpips_loss_fn:lpips.LPIPS) -> tuple[torch.Tensor, torch.Tensor]:
+def autoencoder_fwd_step(categorical_encoder:CategoricalEncoder, 
+                         categorical_decoder:CategoricalDecoder, 
+                         observations_batch:torch.Tensor, 
+                         batch_size:int, 
+                         sequence_length:int, 
+                         latent_dim:int, 
+                         codes_per_latent:int,
+                         lpips_loss_fn:lpips.LPIPS) -> tuple[torch.Tensor, torch.Tensor]:
     
     categorical_encoder.train()
     categorical_decoder.train()
 
     with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
-        latents_batch = forward_pass_encoder(categorical_encoder=categorical_encoder, 
-                                            observations_batch=observations_batch, 
-                                            batch_size=batch_size, 
-                                            sequence_length=sequence_length, 
-                                            latent_dim=latent_dim, 
-                                            codes_per_latent=codes_per_latent)        
+        latents_batch = categorical_encoder.forward(observations_batch=observations_batch, 
+                                                    batch_size=batch_size, 
+                                                    sequence_length=sequence_length, 
+                                                    latent_dim=latent_dim, 
+                                                    codes_per_latent=codes_per_latent)        
 
-        latents_batch_logits = latent_unimix(latents_batch=latents_batch, uniform_mixture_percentage=0.01)
-        latents_sampled_batch = sample(latents_batch=latents_batch)
+        latents_sampled_batch = sample(latents_batch=latents_batch, batch_size=batch_size, sequence_length=sequence_length)
 
-        reconstructed_observations_batch = forward_pass_decoder(categorical_decoder=categorical_decoder, 
-                                                                latents_batch=latents_sampled_batch, 
-                                                                batch_size=batch_size, 
-                                                                sequence_length=sequence_length, 
-                                                                latent_dim=latent_dim, 
-                                                                codes_per_latent=codes_per_latent)
+        reconstructed_observations_batch = categorical_decoder.forward(latents_batch=latents_sampled_batch, 
+                                                                       batch_size=batch_size, 
+                                                                       sequence_length=sequence_length, 
+                                                                       latent_dim=latent_dim, 
+                                                                       codes_per_latent=codes_per_latent)
         
         reconstruction_loss = F.mse_loss(reconstructed_observations_batch, observations_batch)
-        perceptual_loss = lpips_loss_fn(observations_batch.view(-1, 3, 64, 64), 
-                                        reconstructed_observations_batch.view(-1, 3, 64, 64)).mean()
+        perceptual_loss = lpips_loss_fn(observations_batch.view(-1, 3, 64, 64), reconstructed_observations_batch.view(-1, 3, 64, 64)).mean()
         reconstruction_loss = reconstruction_loss + 0.2 * perceptual_loss
     
-    return reconstruction_loss, latents_sampled_batch, latents_batch_logits
+    return reconstruction_loss, latents_sampled_batch

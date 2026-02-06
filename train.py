@@ -9,14 +9,13 @@ from scripts.data_related.replay_buffer import update_replay_buffer
 from scripts.data_related.atari_dataset import AtariDataset
 from scripts.utils.tensor_utils import random_replay_batch, env_n_actions
 from scripts.utils.debug_utils import plot_current_loss, save_checkpoint
-from scripts.models.categorical_vae.categorical_autoencoder_step import autoencoder_step
+from scripts.models.categorical_vae.categorical_autoencoder_step import autoencoder_fwd_step
 from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.categorical_vae.decoder import CategoricalDecoder
-from scripts.models.sequence_preprocessing.tokenizer import Tokenizer
-from scripts.models.sequence_preprocessing.tokenizer_fwd_pass import tokenize
+from scripts.models.dynamics_modeling.tokenizer import Tokenizer
 from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
 from scripts.models.dynamics_modeling.dynamics_model_step import dm_step
-from scripts.loss_functions.total_loss import total_loss_step
+from scripts.models.dynamics_modeling.total_loss import total_loss_step
 
 
 if __name__ == '__main__':
@@ -90,10 +89,6 @@ if __name__ == '__main__':
                                  lr=WORLD_MODEL_LEARNING_RATE)
     SCALER = torch.amp.GradScaler(enabled=True)
     for epoch in range(EPOCHS):
-        if epoch % 100 == 0:
-             print(f'Training Epoch: {epoch}...')
-
-        # Gather data
         observations, actions, rewards, terminations, episode_starts = gather_steps(**env_cfg)
         update_replay_buffer(replay_buffer_path=REPLAY_BUFFER_PATH, 
                             observations=observations, 
@@ -110,64 +105,61 @@ if __name__ == '__main__':
                                                                                                        sequence_length=SEQUENCE_LENGTH,
                                                                                                        device=DEVICE)
             
-            # Train World Model
-            categorical_autoencoder_reconstruction_loss, latents_sampled_batch, latents_batch_logits = autoencoder_step(categorical_encoder=categorical_encoder, 
-                                                                                                                        categorical_decoder=categorical_decoder, 
-                                                                                                                        observations_batch=observations_batch, 
-                                                                                                                        batch_size=BATCH_SIZE, 
-                                                                                                                        sequence_length=SEQUENCE_LENGTH, 
-                                                                                                                        latent_dim=LATENT_DIM, 
-                                                                                                                        codes_per_latent=CODES_PER_LATENT,
-                                                                                                                        optimizer=OPTIMIZER,
-                                                                                                                        scaler=SCALER, 
-                                                                                                                        lpips_loss_fn=lpips_model)
+            reconstruction_loss, latents_sampled_batch = autoencoder_fwd_step(categorical_encoder=categorical_encoder, 
+                                                                              categorical_decoder=categorical_decoder, 
+                                                                              observations_batch=observations_batch, 
+                                                                              batch_size=BATCH_SIZE, 
+                                                                              sequence_length=SEQUENCE_LENGTH, 
+                                                                              latent_dim=LATENT_DIM, 
+                                                                              codes_per_latent=CODES_PER_LATENT,
+                                                                              lpips_loss_fn=lpips_model)
             
-            tokens_batch = tokenize(tokenizer=tokenizer, 
-                                    latents_sampled_batch=latents_sampled_batch, 
-                                    actions_batch=actions_batch)
-            
+            tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions_batch)
 
-            rewards_loss, terminations_loss, dynamics_loss, representations_loss, dynamics_kl_div, representations_kl_div = dm_step(dynamics_model=dynamics_model,
-                                                                                                                                    latents_batch=latents_batch_logits, 
-                                                                                                                                    tokens_batch=tokens_batch, 
-                                                                                                                                    rewards_batch=rewards_batch, 
-                                                                                                                                    terminations_batch=terminations_batch, 
-                                                                                                                                    free_bits=FREE_BITS, 
-                                                                                                                                    batch_size=BATCH_SIZE, 
-                                                                                                                                    sequence_length=SEQUENCE_LENGTH, 
-                                                                                                                                    latent_dim=LATENT_DIM, 
-                                                                                                                                    codes_per_latent=CODES_PER_LATENT)
-
-            mean_total_loss = total_loss_step(reconstruction_loss=categorical_autoencoder_reconstruction_loss, 
-                                              reward_loss=rewards_loss, 
-                                              termination_loss=terminations_loss, 
-                                              dynamics_loss=dynamics_loss, 
-                                              representation_loss=representations_loss, 
-                                              batch_size=BATCH_SIZE, 
-                                              sequence_length=SEQUENCE_LENGTH, 
-                                              dynamics_beta=DYNAMICS_BETA, 
-                                              representations_beta=REPRESENTATIONS_BETA, 
-                                              categorical_encoder=categorical_encoder, 
-                                              categorical_decoder=categorical_decoder, 
-                                              tokenizer=tokenizer, 
-                                              dynamics_model=dynamics_model, 
-                                              optimizer=OPTIMIZER, 
-                                              scaler=SCALER)
+            # tokens_batch.dim = (32, 64, 256) -> xlstm -> predict next token -> gives hidden state -> next_latent (cross entropy), next reward (mse), next termination (bce)
+            # Check if next latent is binary, i think its necessary.
             
-            step_metrics = {
-                'total': mean_total_loss.item(),
-                'reconstruction': categorical_autoencoder_reconstruction_loss.item(),
-                'reward': rewards_loss.item(),
-                'termination': terminations_loss.item(),
-                'dynamics': dynamics_loss.item()*DYNAMICS_BETA,
-                'representation': representations_loss.item()*REPRESENTATIONS_BETA,
-                'dynamics_kl': dynamics_kl_div.item(),
-                'representation_kl': representations_kl_div.item()
-            }
-            
-            epoch_loss_history.append(step_metrics)
+            # rewards_loss, terminations_loss, dynamics_loss, representations_loss, dynamics_kl_div, representations_kl_div = dm_step(dynamics_model=dynamics_model,
+            #                                                                                                                         latents_batch=latents_batch_logits, 
+            #                                                                                                                         tokens_batch=tokens_batch, 
+            #                                                                                                                         rewards_batch=rewards_batch, 
+            #                                                                                                                         terminations_batch=terminations_batch, 
+            #                                                                                                                         free_bits=FREE_BITS, 
+            #                                                                                                                         batch_size=BATCH_SIZE, 
+            #                                                                                                                         sequence_length=SEQUENCE_LENGTH, 
+            #                                                                                                                         latent_dim=LATENT_DIM, 
+            #                                                                                                                         codes_per_latent=CODES_PER_LATENT)
 
-        # Metrics
-        plot_current_loss(new_losses=epoch_loss_history, 
-                          training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
-                          epochs=EPOCHS)
+            # mean_total_loss = total_loss_step(reconstruction_loss=categorical_autoencoder_reconstruction_loss, 
+            #                                   reward_loss=rewards_loss, 
+            #                                   termination_loss=terminations_loss, 
+            #                                   dynamics_loss=dynamics_loss, 
+            #                                   representation_loss=representations_loss, 
+            #                                   batch_size=BATCH_SIZE, 
+            #                                   sequence_length=SEQUENCE_LENGTH, 
+            #                                   dynamics_beta=DYNAMICS_BETA, 
+            #                                   representations_beta=REPRESENTATIONS_BETA, 
+            #                                   categorical_encoder=categorical_encoder, 
+            #                                   categorical_decoder=categorical_decoder, 
+            #                                   tokenizer=tokenizer, 
+            #                                   dynamics_model=dynamics_model, 
+            #                                   optimizer=OPTIMIZER, 
+            #                                   scaler=SCALER)
+            
+            # step_metrics = {
+            #     'total': mean_total_loss.item(),
+            #     'reconstruction': categorical_autoencoder_reconstruction_loss.item(),
+            #     'reward': rewards_loss.item(),
+            #     'termination': terminations_loss.item(),
+            #     'dynamics': dynamics_loss.item()*DYNAMICS_BETA,
+            #     'representation': representations_loss.item()*REPRESENTATIONS_BETA,
+            #     'dynamics_kl': dynamics_kl_div.item(),
+            #     'representation_kl': representations_kl_div.item()
+            # }
+            
+            # epoch_loss_history.append(step_metrics)
+
+        # # Metrics
+        # plot_current_loss(new_losses=epoch_loss_history, 
+        #                   training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
+        #                   epochs=EPOCHS)

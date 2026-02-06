@@ -12,9 +12,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from scripts.models.categorical_vae.encoder_fwd_pass import forward_pass_encoder
 from scripts.models.categorical_vae.sampler import sample
-from scripts.models.categorical_vae.decoder_fwd_pass import forward_pass_decoder
 from scripts.data_related.atari_dataset import AtariDataset
 from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.categorical_vae.decoder import CategoricalDecoder
@@ -189,9 +187,9 @@ def visualize_reconstruction(dataset_path:str,
         
     model_input = obs_seq.unsqueeze(0).to(device)
     with torch.no_grad():
-        latents = forward_pass_encoder(encoder, model_input, 1, sequence_length, latent_dim, codes_per_latent)
+        latents = encoder.forward(observations_batch=model_input, batch_size=1, sequence_length=sequence_length, latent_dim=latent_dim, codes_per_latent=codes_per_latent)
         sampled_latents = sample(latents)
-        reconstructions = forward_pass_decoder(decoder, sampled_latents, 1, sequence_length, latent_dim, codes_per_latent)
+        reconstructions = decoder.forward(latents_batch=sampled_latents, batch_size=1, sequence_length=sequence_length, latent_dim=latent_dim, codes_per_latent=codes_per_latent)
 
     model_input = model_input.cpu()
     reconstructions = reconstructions.cpu()
