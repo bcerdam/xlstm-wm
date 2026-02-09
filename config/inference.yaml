@@ -1,0 +1,6 @@
+inference:
+  weights_path: 'output/checkpoints/checkpoint_step_20000.pth'
+  fps: 15
+  batch_size: 1
+  context_length: 8
+  imagination_horizon: 100

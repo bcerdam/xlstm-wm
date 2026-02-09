@@ -172,6 +172,25 @@ def visualize_reconstruction(dataset_path:str,
     out.release()
 
 
+def save_dream_video(imagined_frames:List[np.ndarray], video_path:str, fps:int) -> None:
+    os.makedirs(os.path.dirname(video_path), exist_ok=True)
+
+    _, _, height, width = imagined_frames[0].shape
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+
+    for frame in imagined_frames:
+        frame = frame[0]
+        frame = np.transpose(frame, (1, 2, 0))
+        frame = (frame + 1) * 127.5
+        frame = frame.astype(np.uint8)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        out.write(frame)
+
+    out.release()
+
+
 if __name__ == '__main__':
     h5_path = 'data/replay_buffer.h5'
     start_idx = 0
@@ -185,11 +204,11 @@ if __name__ == '__main__':
 
     # inspect_dataset(h5_path=h5_path)
 
-    rollout_video(h5_path=h5_path, 
-                  start_idx=start_idx, 
-                  steps=steps,
-                  video_fps=video_fps, 
-                  output_path=output_path)
+    # rollout_video(h5_path=h5_path, 
+    #               start_idx=start_idx, 
+    #               steps=steps,
+    #               video_fps=video_fps, 
+    #               output_path=output_path)
 
     # visualize_reconstruction(dataset_path='data/replay_buffer.h5', 
     #                          weights_path='output/checkpoints/checkpoint_autoencoder_epoch_100.pth', 

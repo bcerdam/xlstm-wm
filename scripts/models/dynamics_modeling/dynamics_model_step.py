@@ -2,7 +2,6 @@ import torch
 from torch.nn.functional import mse_loss, binary_cross_entropy_with_logits, cross_entropy
 from typing import Tuple
 from .xlstm_dm import XLSTM_DM
-from scripts.models.categorical_vae.sampler import latent_unimix
 
 
 def dm_fwd_step(dynamics_model:XLSTM_DM, 

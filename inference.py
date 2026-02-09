@@ -1,6 +1,9 @@
 import torch
+import argparse
+import yaml
 import numpy as np
 from typing import List
+from scripts.utils.debug_utils import save_dream_video
 from scripts.utils.tensor_utils import env_n_actions
 from scripts.data_related.atari_dataset import AtariDataset
 from scripts.models.categorical_vae.encoder import CategoricalEncoder
@@ -10,61 +13,100 @@ from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
 from scripts.models.categorical_vae.sampler import sample
 
 
-def dream(xlstm_dm:XLSTM_DM, tokens:torch.Tensor, imagination_horizon:int) -> List:
+def dream(xlstm_dm:XLSTM_DM, 
+          decoder:CategoricalDecoder, 
+          tokenizer:Tokenizer,
+          tokens:torch.Tensor, 
+          imagination_horizon:int, 
+          latent_dim:int, 
+          codes_per_latent:int, 
+          batch_size:int, 
+          env_actions:int,
+          device:str) -> List:
+    
     imagined_frames = []
 
-    print(tokens.shape)
-    latent, reward, termination = xlstm_dm.forward(tokens_batch=tokens)
-    print(latent.shape, reward.shape, termination.shape)
+    for step in range(imagination_horizon):
+        latent, reward, termination = xlstm_dm.forward(tokens_batch=tokens)
 
+        next_latent = latent[:, -1:, :].view(batch_size, 1, latent_dim, codes_per_latent)
+        next_latent_sample = sample(latents_batch=next_latent, batch_size=batch_size, sequence_length=1)
 
-    # for step in range(imagination_horizon):
-    pass
+        decoded_latent = decoder.forward(latents_batch=next_latent_sample, 
+                                        batch_size=batch_size, 
+                                        sequence_length=1, 
+                                        latent_dim=latent_dim, 
+                                        codes_per_latent=codes_per_latent).squeeze(1).cpu().numpy()
+        imagined_frames.append(decoded_latent)
+
+        next_action = torch.zeros((batch_size, 1, env_actions), device=device)
+        random_indices = torch.randint(0, env_actions, (batch_size,), device=device)
+        next_action[torch.arange(batch_size), 0, random_indices] = 1.0
+
+        next_token = tokenizer.forward(latents_sampled_batch=next_latent_sample, actions_batch=next_action)
+        tokens = torch.cat([tokens[:, 1:], next_token], dim=1)
+
+    return imagined_frames
 
 
 if __name__ == '__main__':
-    env_name = 'ALE/Breakout-v5'
-    dataset_path = 'data/replay_buffer.h5'
-    weights_path = 'output/checkpoints/checkpoint_step_10000.pth'
-    batch_size = 1
-    context_length = 8
-    imagination_horizon = 16
-    latent_dim = 32
-    codes_per_latent = 32
-    device = 'cuda'
-    env_actions = env_n_actions(env_name=env_name)
-    embedding_dim = 256
-    sequence_length = 64
-    num_blocks = 2
-    slstm_at = []
-    dropout = 0.1
-    add_post_blocks_norm = True
-    conv1d_kernel_size = 4
-    num_heads = 4
-    qkv_proj_blocksize = 4
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--train_cfg', default='config/train.yaml', type=str, help='Path to env parameters .yaml file')
+    parser.add_argument('--env_cfg', default='config/env.yaml', type=str, help='Path to env parameters .yaml file')
+    parser.add_argument('--inference_cfg', default='config/inference.yaml', type=str, help='Path to inference hyperparameters .yaml file')
+    args = parser.parse_args()
 
-    dataset = AtariDataset(replay_buffer_path=dataset_path, sequence_length=context_length)
-    encoder = CategoricalEncoder(latent_dim=latent_dim, codes_per_latent=codes_per_latent).to(device)
-    decoder = CategoricalDecoder(latent_dim=latent_dim, codes_per_latent=codes_per_latent).to(device)
-    tokenizer = Tokenizer(latent_dim=latent_dim, 
-                          codes_per_latent=codes_per_latent, 
-                          env_actions=env_actions, 
-                          embedding_dim=embedding_dim, 
-                          sequence_length=sequence_length).to(device)
-    xlstm_dm = XLSTM_DM(sequence_length=sequence_length, 
-                        num_blocks=num_blocks, 
-                        embedding_dim=embedding_dim, 
-                        slstm_at=slstm_at, 
-                        dropout=dropout, 
-                        add_post_blocks_norm=add_post_blocks_norm, 
-                        conv1d_kernel_size=conv1d_kernel_size, 
-                        qkv_proj_blocksize=qkv_proj_blocksize, 
-                        num_heads=num_heads, 
-                        latent_dim=latent_dim, 
-                        codes_per_latent=codes_per_latent).to(device)
+    with open(args.train_cfg, 'r') as file_train, open(args.env_cfg, 'r') as file_env, open(args.inference_cfg, 'r') as file_inference:
+        train_cfg = yaml.safe_load(file_train)['train']
+        inference_cfg = yaml.safe_load(file_inference)['inference']
+
+        env_file_content = yaml.safe_load(file_env)
+        env_cfg = env_file_content['env']
+        dataset_cfg = env_file_content['dataset']
     
+    ENV_NAME = env_cfg['env_name']
+    REPLAY_BUFFER_PATH = dataset_cfg['replay_buffer_path']
+    WEIGHTS_PATH = inference_cfg['weights_path']
+    VIDEO_PATH = f'output/videos/dream/dream_{ENV_NAME}.mp4'
+    FPS = inference_cfg['fps']
+    BATCH_SIZE = inference_cfg['batch_size']
+    CONTEXT_LENGTH = inference_cfg['context_length']
+    IMAGINATION_HORIZON = inference_cfg['imagination_horizon']
+    LATENT_DIM = train_cfg['latent_dim']
+    CODES_PER_LATENT = train_cfg['codes_per_latent']
+    DEVICE = 'cuda'
+    ENV_ACTIONS = env_n_actions(env_name=ENV_NAME)
+    EMBEDDING_DIM = train_cfg['embedding_dim']
+    SEQUENCE_LENGTH = train_cfg['sequence_length']
+    NUM_BLOCKS = train_cfg['num_blocks']
+    SLSTM_AT = train_cfg['slstm_at']
+    DROPOUT = train_cfg['dropout']
+    ADD_POST_BLOCKS_NORM = train_cfg['add_post_blocks_norm']
+    CONV1D_KERNEL_SIZE = train_cfg['conv1d_kernel_size']
+    NUM_HEADS = train_cfg['num_heads']
+    QKV_PROJ_BLOCKSIZE = train_cfg['qkv_proj_blocksize']
 
-    checkpoint = torch.load(weights_path, map_location=device)
+    dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=CONTEXT_LENGTH)
+    encoder = CategoricalEncoder(latent_dim=LATENT_DIM, codes_per_latent=CODES_PER_LATENT).to(DEVICE)
+    decoder = CategoricalDecoder(latent_dim=LATENT_DIM, codes_per_latent=CODES_PER_LATENT).to(DEVICE)
+    tokenizer = Tokenizer(latent_dim=LATENT_DIM, 
+                          codes_per_latent=CODES_PER_LATENT, 
+                          env_actions=ENV_ACTIONS, 
+                          embedding_dim=EMBEDDING_DIM, 
+                          sequence_length=SEQUENCE_LENGTH).to(DEVICE)
+    xlstm_dm = XLSTM_DM(sequence_length=SEQUENCE_LENGTH, 
+                        num_blocks=NUM_BLOCKS, 
+                        embedding_dim=EMBEDDING_DIM, 
+                        slstm_at=SLSTM_AT, 
+                        dropout=DROPOUT, 
+                        add_post_blocks_norm=ADD_POST_BLOCKS_NORM, 
+                        conv1d_kernel_size=CONV1D_KERNEL_SIZE, 
+                        qkv_proj_blocksize=QKV_PROJ_BLOCKSIZE, 
+                        num_heads=NUM_HEADS, 
+                        latent_dim=LATENT_DIM, 
+                        codes_per_latent=CODES_PER_LATENT).to(DEVICE)
+    
+    checkpoint = torch.load(WEIGHTS_PATH, map_location=DEVICE)
     encoder.load_state_dict(checkpoint['encoder'])
     decoder.load_state_dict(checkpoint['decoder'])
     tokenizer.load_state_dict(checkpoint['tokenizer'])
@@ -77,27 +119,29 @@ if __name__ == '__main__':
     
     idx = np.random.randint(0, len(dataset))
     observations, actions, _, _ = dataset[idx] 
-    observations = torch.from_numpy(observations).unsqueeze(0).to(device)
-    actions = torch.from_numpy(actions).unsqueeze(0).to(device)
+    observations = torch.from_numpy(observations).unsqueeze(0).to(DEVICE)
+    actions = torch.from_numpy(actions).unsqueeze(0).to(DEVICE)
 
     with torch.no_grad():
         latents = encoder.forward(observations_batch=observations, 
-                                  batch_size=batch_size, 
-                                  sequence_length=context_length, 
-                                  latent_dim=latent_dim, 
-                                  codes_per_latent=codes_per_latent)
+                                  batch_size=BATCH_SIZE, 
+                                  sequence_length=CONTEXT_LENGTH, 
+                                  latent_dim=LATENT_DIM, 
+                                  codes_per_latent=CODES_PER_LATENT)
         
-        latents_sampled_batch = sample(latents, batch_size=batch_size, sequence_length=context_length)
+        latents_sampled_batch = sample(latents, batch_size=BATCH_SIZE, sequence_length=CONTEXT_LENGTH)
 
         tokens = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions)
 
-        dream(xlstm_dm=xlstm_dm, tokens=tokens, imagination_horizon=imagination_horizon)
-
-
-    # 2. Feed it to xLSTM dynamics model, autoregressively generate for L = 16 frames, gather next latent, reward and termination
-
-    # 3. Random policy for now, generate next action
-
-    # 4. Repeat 1. with generated latent and action
-
-    # At the end, save imagined rollout for debugging
+        imagined_frames = dream(xlstm_dm=xlstm_dm, 
+                                decoder=decoder,
+                                tokenizer=tokenizer,
+                                tokens=tokens, 
+                                imagination_horizon=IMAGINATION_HORIZON, 
+                                latent_dim=LATENT_DIM, 
+                                codes_per_latent=CODES_PER_LATENT, 
+                                batch_size=BATCH_SIZE, 
+                                env_actions=ENV_ACTIONS, 
+                                device=DEVICE)
+        
+        save_dream_video(imagined_frames=imagined_frames, video_path=VIDEO_PATH, fps=FPS)

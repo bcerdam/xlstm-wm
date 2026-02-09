@@ -117,7 +117,7 @@ if __name__ == '__main__':
                                                                               codes_per_latent=CODES_PER_LATENT,
                                                                               lpips_loss_fn=lpips_model)
             
-            tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions_batch)
+            tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch.detach(), actions_batch=actions_batch)
             
             rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=dynamics_model,
                                                                          latents_batch=latents_sampled_batch, 
