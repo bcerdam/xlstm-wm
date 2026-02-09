@@ -85,6 +85,10 @@ if __name__ == '__main__':
     CONV1D_KERNEL_SIZE = train_cfg['conv1d_kernel_size']
     NUM_HEADS = train_cfg['num_heads']
     QKV_PROJ_BLOCKSIZE = train_cfg['qkv_proj_blocksize']
+    BIAS_INIT = train_cfg['bias_init']
+    PROJ_FACTOR = train_cfg['proj_factor']
+    ACT_FN = train_cfg['act_fn']
+
 
     dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=CONTEXT_LENGTH)
     encoder = CategoricalEncoder(latent_dim=LATENT_DIM, codes_per_latent=CODES_PER_LATENT).to(DEVICE)
@@ -104,7 +108,10 @@ if __name__ == '__main__':
                         qkv_proj_blocksize=QKV_PROJ_BLOCKSIZE, 
                         num_heads=NUM_HEADS, 
                         latent_dim=LATENT_DIM, 
-                        codes_per_latent=CODES_PER_LATENT).to(DEVICE)
+                        codes_per_latent=CODES_PER_LATENT, 
+                        bias_init=BIAS_INIT, 
+                        proj_factor=PROJ_FACTOR, 
+                        act_fn=ACT_FN).to(DEVICE)
     
     checkpoint = torch.load(WEIGHTS_PATH, map_location=DEVICE)
     encoder.load_state_dict(checkpoint['encoder'])

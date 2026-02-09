@@ -5,7 +5,10 @@ from xlstm import (
     xLSTMBlockStack,
     xLSTMBlockStackConfig,
     mLSTMBlockConfig,
-    mLSTMLayerConfig)
+    mLSTMLayerConfig, 
+    sLSTMBlockConfig, 
+    sLSTMLayerConfig, 
+    FeedForwardConfig)
 
 
 def xlstm_block_stack(sequence_length:int, 
@@ -16,7 +19,10 @@ def xlstm_block_stack(sequence_length:int,
                        add_post_blocks_norm:bool, 
                        conv1d_kernel_size:int, 
                        qkv_proj_blocksize:int, 
-                       num_heads:int) -> xLSTMBlockStack:
+                       num_heads:int, 
+                       bias_init:str, 
+                       proj_factor:float, 
+                       act_fn:str) -> xLSTMBlockStack:
                       
     cfg = xLSTMBlockStackConfig(
             mlstm_block=mLSTMBlockConfig(
@@ -24,6 +30,19 @@ def xlstm_block_stack(sequence_length:int,
                     conv1d_kernel_size=conv1d_kernel_size, 
                     qkv_proj_blocksize=qkv_proj_blocksize, 
                     num_heads=num_heads)),
+            slstm_block=sLSTMBlockConfig(
+                slstm=sLSTMLayerConfig(
+                    backend="vanilla", 
+                    num_heads=num_heads, 
+                    conv1d_kernel_size=conv1d_kernel_size, 
+                    bias_init=bias_init
+                ),
+                feedforward=FeedForwardConfig(
+                    embedding_dim=embedding_dim, 
+                    proj_factor=proj_factor, 
+                    act_fn=act_fn
+                )
+            ),
             context_length=sequence_length,
             num_blocks=num_blocks,
             embedding_dim=embedding_dim,
@@ -47,7 +66,10 @@ class XLSTM_DM(nn.Module):
                  qkv_proj_blocksize:int, 
                  num_heads:int, 
                  latent_dim:int, 
-                 codes_per_latent:int) -> None:
+                 codes_per_latent:int, 
+                 bias_init:str, 
+                 proj_factor:float, 
+                 act_fn:str) -> None:
         super().__init__()
 
         self.xlstm_stack = xlstm_block_stack(sequence_length=sequence_length, 
@@ -58,7 +80,10 @@ class XLSTM_DM(nn.Module):
                                              add_post_blocks_norm=add_post_blocks_norm, 
                                              conv1d_kernel_size=conv1d_kernel_size, 
                                              qkv_proj_blocksize=qkv_proj_blocksize, 
-                                             num_heads=num_heads)
+                                             num_heads=num_heads, 
+                                             bias_init=bias_init, 
+                                             proj_factor=proj_factor, 
+                                             act_fn=act_fn)
                 
         self.latent_projection = nn.Linear(in_features=embedding_dim, out_features=latent_dim*codes_per_latent)
 

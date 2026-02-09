@@ -88,8 +88,8 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     plt.grid(True, linestyle='--', alpha=0.3, linewidth=0.5)
     plt.xlim(0, max_x)
     
-    plt.xlabel("Total Training Steps", fontsize=6)
-    plt.ylabel("Loss", fontsize=6)
+    plt.xlabel("Total Training Steps", fontsize=5)
+    plt.ylabel("Loss", fontsize=5)
     plt.title(f"Loss Components (Epoch {current_epoch})", fontsize=5, pad=4)
     
     plt.legend(fontsize=5, loc='upper right', framealpha=0.8, borderpad=0.3)
