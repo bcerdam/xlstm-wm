@@ -118,9 +118,6 @@ if __name__ == '__main__':
                                                                               lpips_loss_fn=lpips_model)
             
             tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions_batch)
-
-            # tokens_batch.dim = (32, 64, 256) -> xlstm -> predict next token -> gives hidden state -> next_latent (cross entropy), next reward (mse), next termination (bce)
-            # Check if next latent is binary, i think its necessary.
             
             rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=dynamics_model,
                                                                          latents_batch=latents_sampled_batch, 

@@ -71,7 +71,7 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     max_x = epochs * training_steps_per_epoch
     x_values = np.arange(1, current_epoch + 1) * training_steps_per_epoch
 
-    plt.figure(figsize=(3, 1), dpi=300)
+    plt.figure(figsize=(6, 2), dpi=200)
     
     loss_styles = {
         'total':          {'color': '#D32F2F', 'alpha': 1.0, 'label': 'Total', 'linewidth': 1.0},
@@ -99,7 +99,7 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/1000)}K'))
 
     plt.tight_layout(pad=0.3)
-    plt.savefig(os.path.join(output_dir, 'loss_plot.jpeg'), format='jpeg', dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'loss_plot.jpeg'), format='jpeg', dpi=200, bbox_inches='tight')
     plt.close()
 
 def save_checkpoint(encoder, decoder, tokenizer, dynamics, optimizer, scaler, step, path="output/checkpoints"):
