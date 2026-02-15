@@ -16,6 +16,7 @@ from scripts.models.dynamics_modeling.tokenizer import Tokenizer
 from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
 from scripts.models.dynamics_modeling.dynamics_model_step import dm_fwd_step
 from scripts.models.dynamics_modeling.total_loss import total_loss_step
+from scripts.models.agent.train_agent import train_agent
 
 import warnings
 warnings.filterwarnings("ignore", message="The parameter 'pretrained' is deprecated")
@@ -163,6 +164,10 @@ if __name__ == '__main__':
                                               dynamics_model=dynamics_model, 
                                               optimizer=OPTIMIZER, 
                                               scaler=SCALER)
+            
+            train_agent(replay_buffer_path=REPLAY_BUFFER_PATH, 
+                        context_length=CONTEXT_LENGTH, 
+                        imagination_batch_size=IMAGINATION_BATCH_SIZE)
             
             training_steps_finished += 1
 
