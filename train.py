@@ -24,12 +24,15 @@ warnings.filterwarnings("ignore", message="Arguments other than a weight enum or
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train_cfg', default='config/train.yaml', type=str, help='Path to env parameters .yaml file')
+    parser.add_argument('--train_wm_cfg', default='config/train_wm.yaml', type=str, help='Path to train wm parameters .yaml file')
+    parser.add_argument('--train_agent_cfg', default='config/train_agent.yaml', type=str, help='Path to train agent parameters .yaml file')
     parser.add_argument('--env_cfg', default='config/env.yaml', type=str, help='Path to env parameters .yaml file')
     args = parser.parse_args()
 
-    with open(args.train_cfg, 'r') as file_train, open(args.env_cfg, 'r') as file_env:
-        train_cfg = yaml.safe_load(file_train)['train']
+    with open(args.train_wm_cfg, 'r') as file_train_wm, open(args.env_cfg, 'r') as file_env, open(args.train_agent_cfg, 'r') as file_train_agent:
+        train_wm_cfg = yaml.safe_load(file_train_wm)['train_wm']
+
+        train_agent_cfg = yaml.safe_load(file_train_agent)['train_agent']
 
         env_file_content = yaml.safe_load(file_env)
         env_cfg = env_file_content['env']
@@ -42,27 +45,42 @@ if __name__ == '__main__':
         shutil.rmtree('output/logs')
 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    EPOCHS = train_cfg['epochs']
-    TRAINING_STEPS_PER_EPOCH = train_cfg['training_steps_per_epoch']
+
     REPLAY_BUFFER_PATH = dataset_cfg['replay_buffer_path']
-    BATCH_SIZE = train_cfg['batch_size']
-    SEQUENCE_LENGTH = train_cfg['sequence_length']
-    LATENT_DIM = train_cfg['latent_dim']
-    CODES_PER_LATENT = train_cfg['codes_per_latent']
-    WORLD_MODEL_LEARNING_RATE = train_cfg['world_model_learning_rate']
-    EMBEDDING_DIM = train_cfg['embedding_dim']
     ENV_NAME = env_cfg['env_name']
     ENV_ACTIONS = env_n_actions(ENV_NAME)
-    NUM_BLOCKS = train_cfg['num_blocks']
-    SLSTM_AT = train_cfg['slstm_at']
-    DROPOUT = train_cfg['dropout']
-    ADD_POST_BLOCKS_NORM = train_cfg['add_post_blocks_norm']
-    CONV1D_KERNEL_SIZE = train_cfg['conv1d_kernel_size']
-    QKV_PROJ_BLOCKSIZE = train_cfg['qkv_proj_blocksize']
-    NUM_HEADS = train_cfg['num_heads']
-    BIAS_INIT = train_cfg['bias_init']
-    PROJ_FACTOR = train_cfg['proj_factor']
-    ACT_FN = train_cfg['act_fn']
+
+    EPOCHS = train_wm_cfg['epochs']
+    TRAINING_STEPS_PER_EPOCH = train_wm_cfg['training_steps_per_epoch']
+    BATCH_SIZE = train_wm_cfg['batch_size']
+    SEQUENCE_LENGTH = train_wm_cfg['sequence_length']
+    WORLD_MODEL_LEARNING_RATE = train_wm_cfg['world_model_learning_rate']
+
+    # autoencoder
+    LATENT_DIM = train_wm_cfg['latent_dim']
+    CODES_PER_LATENT = train_wm_cfg['codes_per_latent']
+
+    # xlstm
+    EMBEDDING_DIM = train_wm_cfg['embedding_dim']
+    NUM_BLOCKS = train_wm_cfg['num_blocks']
+    SLSTM_AT = train_wm_cfg['slstm_at']
+    DROPOUT = train_wm_cfg['dropout']
+    ADD_POST_BLOCKS_NORM = train_wm_cfg['add_post_blocks_norm']
+    CONV1D_KERNEL_SIZE = train_wm_cfg['conv1d_kernel_size']
+    QKV_PROJ_BLOCKSIZE = train_wm_cfg['qkv_proj_blocksize']
+    NUM_HEADS = train_wm_cfg['num_heads']
+    BIAS_INIT = train_wm_cfg['bias_init']
+    PROJ_FACTOR = train_wm_cfg['proj_factor']
+    ACT_FN = train_wm_cfg['act_fn']
+
+    # actor critic agent
+    IMAGINATION_BATCH_SIZE = train_agent_cfg['imagination_batch_size']
+    CONTEXT_LENGTH = train_agent_cfg['context_length']
+    IMAGINATION_HORIZON = train_agent_cfg['imagination_horizon']
+    GAMMA = train_agent_cfg['gamma']
+    LAMBDA = train_agent_cfg['lambda']
+    ENTROPY_COEFF = train_agent_cfg['entropy_coeff']
+    AGENT_LEARNING_RATE = train_agent_cfg['learning_rate']
 
     categorical_encoder = CategoricalEncoder(latent_dim=LATENT_DIM, 
                                              codes_per_latent=CODES_PER_LATENT).to(DEVICE)

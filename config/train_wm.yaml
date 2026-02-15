@@ -1,4 +1,4 @@
-train:
+train_wm:
   epochs: 500
   training_steps_per_epoch: 200
   batch_size: 32
@@ -16,4 +16,4 @@ train:
   qkv_proj_blocksize: 4
   bias_init: 'power_law'
   proj_factor: 2.0
-  act_fn: 'gelu'
+  act_fn: 'gelu'  
