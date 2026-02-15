@@ -38,7 +38,7 @@ def train_agent(replay_buffer_path:str,
     observation_batch, action_batch, reward_batch, termination_batch = next(iter(dataloader))
 
     with torch.no_grad():
-        latent_batch = encoder(observation_batch=observation_batch, 
+        latent_batch = encoder(observations_batch=observation_batch, 
                                batch_size=imagination_batch_size, 
                                sequence_length=context_length, 
                                latent_dim=latent_dim, 
