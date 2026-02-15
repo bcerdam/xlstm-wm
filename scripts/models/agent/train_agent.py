@@ -36,6 +36,10 @@ def train_agent(replay_buffer_path:str,
     dataloader = DataLoader(dataset=dataset, batch_size=imagination_batch_size, shuffle=True)
 
     observation_batch, action_batch, reward_batch, termination_batch = next(iter(dataloader))
+    observation_batch = observation_batch.to(device)
+    action_batch = action_batch.to(device)
+    reward_batch = reward_batch.to(device)
+    termination_batch = termination_batch.to(device)
     current_batch_size = observation_batch.shape[0]
 
     with torch.no_grad():
