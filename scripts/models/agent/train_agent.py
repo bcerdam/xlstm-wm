@@ -36,16 +36,17 @@ def train_agent(replay_buffer_path:str,
     dataloader = DataLoader(dataset=dataset, batch_size=imagination_batch_size, shuffle=True)
 
     observation_batch, action_batch, reward_batch, termination_batch = next(iter(dataloader))
+    current_batch_size = observation_batch.shape[0]
 
     with torch.no_grad():
         latent_batch = encoder(observations_batch=observation_batch, 
-                               batch_size=imagination_batch_size, 
+                               batch_size=current_batch_size, 
                                sequence_length=context_length, 
                                latent_dim=latent_dim, 
                                codes_per_latent=codes_per_latent)
         
         latent_sampled_batch = sample(latents_batch=latent_batch, 
-                                      batch_size=imagination_batch_size, 
+                                      batch_size=current_batch_size, 
                                       sequence_length=context_length)
         # [1024, 8, 512] -> [1024, 16, 32, 32], [1024, 16, 1], [1024, 16], [1024, 16, 512]
         tokens_batch = tokenizer.forward(latents_sampled_batch=latent_sampled_batch, actions_batch=action_batch)
