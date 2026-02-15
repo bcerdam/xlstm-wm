@@ -105,4 +105,4 @@ class XLSTM_DM(nn.Module):
         termination = self.termination_head_1(features)
         termination = self.termination_head_2(termination)
 
-        return next_state_latent, reward, termination
+        return next_state_latent, reward, termination, features

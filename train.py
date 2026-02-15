@@ -167,7 +167,17 @@ if __name__ == '__main__':
             
             train_agent(replay_buffer_path=REPLAY_BUFFER_PATH, 
                         context_length=CONTEXT_LENGTH, 
-                        imagination_batch_size=IMAGINATION_BATCH_SIZE)
+                        imagination_horizon=IMAGINATION_HORIZON, 
+                        imagination_batch_size=IMAGINATION_BATCH_SIZE, 
+                        env_actions=ENV_ACTIONS, 
+                        latent_dim=LATENT_DIM, 
+                        codes_per_latent=CODES_PER_LATENT, 
+                        encoder=categorical_encoder, 
+                        decoder=categorical_decoder, 
+                        tokenizer=tokenizer, 
+                        xlstm_dm=dynamics_model, 
+                        device=DEVICE, 
+                        decode=False)
             
             training_steps_finished += 1
 

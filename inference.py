@@ -2,7 +2,7 @@ import torch
 import argparse
 import yaml
 import numpy as np
-from typing import List
+from typing import List, Tuple
 from scripts.utils.debug_utils import save_dream_video
 from scripts.utils.tensor_utils import env_n_actions
 from scripts.data_related.atari_dataset import AtariDataset
@@ -22,22 +22,34 @@ def dream(xlstm_dm:XLSTM_DM,
           codes_per_latent:int, 
           batch_size:int, 
           env_actions:int,
-          device:str) -> List:
+          device:str, 
+          decode:bool) -> Tuple:
     
     imagined_frames = []
+    imagined_latents = []
+    imagined_rewards = []
+    imagined_terminations = []
+    hidden_states = []
 
     for step in range(imagination_horizon):
-        latent, reward, termination = xlstm_dm.forward(tokens_batch=tokens)
+        latent, reward, termination, hidden_state = xlstm_dm.forward(tokens_batch=tokens)
+        imagined_rewards.append(reward[:, -1, :])
+        imagined_terminations.append(termination[:, -1, :])
+        hidden_states.append(hidden_state[:, -1, :])
 
         next_latent = latent[:, -1:, :].view(batch_size, 1, latent_dim, codes_per_latent)
         next_latent_sample = sample(latents_batch=next_latent, batch_size=batch_size, sequence_length=1)
 
-        decoded_latent = decoder.forward(latents_batch=next_latent_sample, 
-                                        batch_size=batch_size, 
-                                        sequence_length=1, 
-                                        latent_dim=latent_dim, 
-                                        codes_per_latent=codes_per_latent).squeeze(1).cpu().numpy()
-        imagined_frames.append(decoded_latent)
+        if decode == True:
+            decoded_latent = decoder.forward(latents_batch=next_latent_sample, 
+                                            batch_size=batch_size, 
+                                            sequence_length=1, 
+                                            latent_dim=latent_dim, 
+                                            codes_per_latent=codes_per_latent).squeeze(1).cpu().numpy()
+            
+            imagined_frames.append(decoded_latent)
+
+        imagined_latents.append(next_latent_sample)
 
         next_action = torch.zeros((batch_size, 1, env_actions), device=device)
         random_indices = torch.randint(0, env_actions, (batch_size,), device=device)
@@ -46,7 +58,7 @@ def dream(xlstm_dm:XLSTM_DM,
         next_token = tokenizer.forward(latents_sampled_batch=next_latent_sample, actions_batch=next_action)
         tokens = torch.cat([tokens[:, 1:], next_token], dim=1)
 
-    return imagined_frames
+    return imagined_frames, imagined_latents, imagined_rewards, imagined_terminations, hidden_states
 
 
 if __name__ == '__main__':
@@ -140,15 +152,15 @@ if __name__ == '__main__':
 
         tokens = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions)
 
-        imagined_frames = dream(xlstm_dm=xlstm_dm, 
-                                decoder=decoder,
-                                tokenizer=tokenizer,
-                                tokens=tokens, 
-                                imagination_horizon=IMAGINATION_HORIZON, 
-                                latent_dim=LATENT_DIM, 
-                                codes_per_latent=CODES_PER_LATENT, 
-                                batch_size=BATCH_SIZE, 
-                                env_actions=ENV_ACTIONS, 
-                                device=DEVICE)
+        imagined_frames, _, _, _, _ = dream(xlstm_dm=xlstm_dm, 
+                                            decoder=decoder,
+                                            tokenizer=tokenizer,
+                                            tokens=tokens, 
+                                            imagination_horizon=IMAGINATION_HORIZON, 
+                                            latent_dim=LATENT_DIM, 
+                                            codes_per_latent=CODES_PER_LATENT, 
+                                            batch_size=BATCH_SIZE, 
+                                            env_actions=ENV_ACTIONS, 
+                                            device=DEVICE)
         
         save_dream_video(imagined_frames=imagined_frames, video_path=VIDEO_PATH, fps=FPS)
