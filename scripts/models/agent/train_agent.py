@@ -62,7 +62,7 @@ def train_agent(replay_buffer_path:str,
                                                                                         imagination_horizon=imagination_horizon, 
                                                                                         latent_dim=latent_dim, 
                                                                                         codes_per_latent=codes_per_latent, 
-                                                                                        batch_size=imagination_batch_size, 
+                                                                                        batch_size=current_batch_size, 
                                                                                         env_actions=env_actions, 
                                                                                         device=device, 
                                                                                         decode=decode)
