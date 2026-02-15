@@ -67,6 +67,11 @@ def train_agent(replay_buffer_path:str,
                                                                                         device=device, 
                                                                                         decode=decode)
         
+        imagined_latent = torch.cat(imagined_latent, dim=1)
+        imagined_reward = torch.stack(imagined_reward, dim=1)
+        imagined_termination = torch.stack(imagined_termination, dim=1)
+        hidden_state = torch.stack(hidden_state, dim=1) 
+        
         print(imagined_latent.shape, imagined_reward.shape, imagined_termination.shape, hidden_state.shape)
         
 
