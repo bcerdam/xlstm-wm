@@ -17,6 +17,7 @@ from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
 from scripts.models.dynamics_modeling.dynamics_model_step import dm_fwd_step
 from scripts.models.dynamics_modeling.total_loss import total_loss_step
 from scripts.models.agent.train_agent import train_agent
+from scripts.models.agent.critic import Critic
 
 import warnings
 warnings.filterwarnings("ignore", message="The parameter 'pretrained' is deprecated")
@@ -108,6 +109,10 @@ if __name__ == '__main__':
                               act_fn=ACT_FN).to(DEVICE)
     lpips_model = lpips.LPIPS(net='alex').to(DEVICE).requires_grad_(False).eval()
 
+    critic = Critic(latent_dim=LATENT_DIM, 
+                    codes_per_latent=CODES_PER_LATENT, 
+                    embedding_dim=EMBEDDING_DIM)
+
     OPTIMIZER = torch.optim.Adam(list(categorical_encoder.parameters()) + 
                                  list(categorical_decoder.parameters()) +
                                  list(tokenizer.parameters()) + 
@@ -175,7 +180,10 @@ if __name__ == '__main__':
                         encoder=categorical_encoder, 
                         tokenizer=tokenizer, 
                         xlstm_dm=dynamics_model, 
-                        device=DEVICE)
+                        critic=critic,
+                        device=DEVICE, 
+                        gamma=GAMMA, 
+                        lambda_p=LAMBDA)
             
             training_steps_finished += 1
 
