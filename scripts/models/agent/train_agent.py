@@ -98,9 +98,8 @@ def train_agent(replay_buffer_path:str,
                                                                                      batch_size=current_batch_size, 
                                                                                      env_actions=env_actions, 
                                                                                      device=device)
-        
-        # [1024, 16, 32, 96] -> [1024, 16, 3072] concat [1024, 16, 512] on dim 1
-        print(imagined_latent.shape, imagined_reward.shape, imagined_termination.shape, hidden_state.shape)
+        # [1024, 16, 3584]
+        env_state = torch.concat([imagined_latent, hidden_state], dim=-1)
 
             
 
