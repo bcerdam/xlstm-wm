@@ -173,11 +173,9 @@ if __name__ == '__main__':
                         latent_dim=LATENT_DIM, 
                         codes_per_latent=CODES_PER_LATENT, 
                         encoder=categorical_encoder, 
-                        decoder=categorical_decoder, 
                         tokenizer=tokenizer, 
                         xlstm_dm=dynamics_model, 
-                        device=DEVICE, 
-                        decode=False)
+                        device=DEVICE)
             
             training_steps_finished += 1
 
