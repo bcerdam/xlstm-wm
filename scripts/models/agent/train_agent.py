@@ -10,6 +10,7 @@ from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.dynamics_modeling.tokenizer import Tokenizer
 from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
 from scripts.models.categorical_vae.sampler import sample
+from scripts.models.agent.critic import Critic
 
 
 def dream(xlstm_dm:XLSTM_DM, 
@@ -52,6 +53,46 @@ def dream(xlstm_dm:XLSTM_DM,
     return imagined_latents, imagined_rewards, imagined_terminations, hidden_states
 
 
+def lambda_returns(reward:torch.Tensor, 
+                   termination:torch.Tensor, 
+                   gamma:float, 
+                   lambda_p:float, 
+                   state_value:torch.Tensor, 
+                   g_value:torch.Tensor) -> torch.Tensor:
+    
+    lambda_formula = (1-lambda_p)*state_value + lambda_p*g_value
+    return reward + gamma*(1-termination)*lambda_formula
+
+
+def recursive_lambda_returns(env_state:torch.Tensor, 
+                             reward:torch.Tensor, 
+                             termination:torch.Tensor, 
+                             gamma:float, 
+                             lambda_p:float,  
+                             device:str, 
+                             critic:Critic) -> torch.Tensor:
+    
+    imagination_horizon = reward.shape[1]
+    with torch.no_grad():
+        state_values = critic.forward(state=env_state) # (1024, 16, 1)
+
+    batch_lambda_returns = torch.zeros_like(input=value_states, device=device)
+    batch_lambda_returns[:, -1, :] = state_values[:, -1, :]
+
+    for timestep in reversed(range(imagination_horizon-1)):
+        reward_t = reward[:, timestep, :]
+        termination_t = termination[:, timestep, :]
+        state_value_t_plus_1 = state_values[:, timestep+1, :]
+        g_value_t_plus_1 = batch_lambda_returns[:, timestep+1, :]
+        batch_lambda_returns[:, timestep, :] = lambda_returns(reward=reward_t, 
+                                                              termination=termination_t, 
+                                                              gamma=gamma, 
+                                                              lambda_p=lambda_p, 
+                                                              state_value=state_value_t_plus_1, 
+                                                              g_value=g_value_t_plus_1)
+    return batch_lambda_returns, state_values
+
+
 def train_agent(replay_buffer_path:str, 
                 context_length:int, 
                 imagination_horizon:int, 
@@ -62,7 +103,10 @@ def train_agent(replay_buffer_path:str,
                 encoder:CategoricalEncoder, 
                 tokenizer:Tokenizer, 
                 xlstm_dm:XLSTM_DM, 
-                device:str) -> Tuple:
+                critic:Critic, 
+                device:str, 
+                gamma:float, 
+                lambda_p: float) -> Tuple:
     
     dataset = AtariDataset(replay_buffer_path=replay_buffer_path, sequence_length=context_length)
     dataloader = DataLoader(dataset=dataset, batch_size=imagination_batch_size, shuffle=True)
@@ -100,6 +144,14 @@ def train_agent(replay_buffer_path:str,
                                                                                      device=device)
         # [1024, 16, 3584]
         env_state = torch.concat([imagined_latent, hidden_state], dim=-1)
+
+        lambda_returns, ema_state_values = recursive_lambda_returns(env_state=env_state, 
+                                                                    reward=imagined_reward, 
+                                                                    termination=imagined_termination, 
+                                                                    gamma=gamma, 
+                                                                    lambda_p=lambda_p, 
+                                                                    device=device, 
+                                                                    critic=critic)
 
             
 
