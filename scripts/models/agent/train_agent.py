@@ -145,13 +145,15 @@ def train_agent(replay_buffer_path:str,
         # [1024, 16, 3584]
         env_state = torch.concat([imagined_latent, hidden_state], dim=-1)
 
-        lambda_returns, ema_state_values = recursive_lambda_returns(env_state=env_state, 
-                                                                    reward=imagined_reward, 
-                                                                    termination=imagined_termination, 
-                                                                    gamma=gamma, 
-                                                                    lambda_p=lambda_p, 
-                                                                    device=device, 
-                                                                    critic=critic)
+        batch_lambda_returns, ema_state_values = recursive_lambda_returns(env_state=env_state, 
+                                                                          reward=imagined_reward, 
+                                                                          termination=imagined_termination, 
+                                                                          gamma=gamma, 
+                                                                          lambda_p=lambda_p, 
+                                                                          device=device, 
+                                                                          critic=critic)
+        
+        print(batch_lambda_returns.shape, ema_state_values.shape)
 
             
 
