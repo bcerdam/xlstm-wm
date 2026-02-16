@@ -21,8 +21,7 @@ def dream(xlstm_dm:XLSTM_DM,
           codes_per_latent:int, 
           batch_size:int, 
           env_actions:int,
-          device:str, 
-          decode:bool) -> Tuple:
+          device:str) -> Tuple:
     
     imagined_frames = []
     imagined_latents = []
@@ -59,7 +58,6 @@ def train_agent(replay_buffer_path:str,
                 latent_dim:int, 
                 codes_per_latent:int,  
                 encoder:CategoricalEncoder, 
-                decoder:CategoricalDecoder, 
                 tokenizer:Tokenizer, 
                 xlstm_dm:XLSTM_DM, 
                 device:str) -> Tuple:
