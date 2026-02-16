@@ -76,7 +76,7 @@ def recursive_lambda_returns(env_state:torch.Tensor,
     with torch.no_grad():
         state_values = critic.forward(state=env_state) # (1024, 16, 1)
 
-    batch_lambda_returns = torch.zeros_like(input=value_states, device=device)
+    batch_lambda_returns = torch.zeros_like(input=state_values, device=device)
     batch_lambda_returns[:, -1, :] = state_values[:, -1, :]
 
     for timestep in reversed(range(imagination_horizon-1)):

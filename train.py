@@ -111,7 +111,7 @@ if __name__ == '__main__':
 
     critic = Critic(latent_dim=LATENT_DIM, 
                     codes_per_latent=CODES_PER_LATENT, 
-                    embedding_dim=EMBEDDING_DIM)
+                    embedding_dim=EMBEDDING_DIM).to(DEVICE)
 
     OPTIMIZER = torch.optim.Adam(list(categorical_encoder.parameters()) + 
                                  list(categorical_decoder.parameters()) +
