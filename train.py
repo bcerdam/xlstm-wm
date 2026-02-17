@@ -130,7 +130,7 @@ if __name__ == '__main__':
                                  list(dynamics_model.parameters()),
                                  lr=WORLD_MODEL_LEARNING_RATE)
     
-    AGENT_OPTIMIZER = torch.optim.Adam(list(critic.parameters()),
+    AGENT_OPTIMIZER = torch.optim.Adam(list(critic.parameters()) +
                                        list(actor.parameters()),  
                                        lr=AGENT_LEARNING_RATE)
 
