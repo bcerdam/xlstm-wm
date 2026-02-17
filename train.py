@@ -84,7 +84,7 @@ if __name__ == '__main__':
     IMAGINATION_HORIZON = train_agent_cfg['imagination_horizon']
     GAMMA = train_agent_cfg['gamma']
     LAMBDA = train_agent_cfg['lambda']
-    ENTROPY_COEFF = train_agent_cfg['entropy_coeff']
+    NABLA = train_agent_cfg['entropy_coeff']
     EMA_SIGMA = train_agent_cfg['ema_sigma']
     AGENT_LEARNING_RATE = train_agent_cfg['learning_rate']
 
@@ -189,25 +189,28 @@ if __name__ == '__main__':
                                               scaler=SCALER)
             
             observation_batch, action_batch, reward_batch, termination_batch = next(iter(agent_dataloader))
-            train_agent(observation_batch=observation_batch, 
-                        action_batch=action_batch, 
-                        reward_batch=reward_batch, 
-                        termination_batch=termination_batch, 
-                        context_length=CONTEXT_LENGTH, 
-                        imagination_horizon=IMAGINATION_HORIZON, 
-                        env_actions=ENV_ACTIONS, 
-                        latent_dim=LATENT_DIM, 
-                        codes_per_latent=CODES_PER_LATENT, 
-                        encoder=categorical_encoder, 
-                        tokenizer=tokenizer, 
-                        xlstm_dm=dynamics_model, 
-                        actor=actor, 
-                        critic=critic,
-                        ema_critic=ema_critic,
-                        device=DEVICE, 
-                        gamma=GAMMA, 
-                        lambda_p=LAMBDA, 
-                        ema_sigma=EMA_SIGMA)
+            mean_actor_loss, mean_critic_loss, mean_imagined_reward = train_agent(observation_batch=observation_batch, 
+                                                                                  action_batch=action_batch, 
+                                                                                  reward_batch=reward_batch, 
+                                                                                  termination_batch=termination_batch, 
+                                                                                  context_length=CONTEXT_LENGTH, 
+                                                                                  imagination_horizon=IMAGINATION_HORIZON, 
+                                                                                  env_actions=ENV_ACTIONS, 
+                                                                                  latent_dim=LATENT_DIM, 
+                                                                                  codes_per_latent=CODES_PER_LATENT, 
+                                                                                  encoder=categorical_encoder, 
+                                                                                  tokenizer=tokenizer, 
+                                                                                  xlstm_dm=dynamics_model, 
+                                                                                  actor=actor, 
+                                                                                  critic=critic,
+                                                                                  ema_critic=ema_critic,
+                                                                                  device=DEVICE, 
+                                                                                  gamma=GAMMA, 
+                                                                                  lambda_p=LAMBDA, 
+                                                                                  ema_sigma=EMA_SIGMA, 
+                                                                                  nabla=NABLA, 
+                                                                                  optimizer=AGENT_OPTIMIZER, 
+                                                                                  scaler=SCALER)
             
             training_steps_finished += 1
 

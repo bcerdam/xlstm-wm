@@ -1,6 +1,3 @@
-# 6. Concat imagined latent and hidden state
-# 7. Using data from 6., train the agent. (Lambda returns, Loss functions, then EMA)
-
 import torch
 import numpy as np
 from typing import Tuple
@@ -10,8 +7,8 @@ from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.dynamics_modeling.tokenizer import Tokenizer
 from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
 from scripts.models.categorical_vae.sampler import sample
-from scripts.models.agent.critic import Critic
-from scripts.models.agent.actor import Actor
+from scripts.models.agent.critic import Critic, critic_loss
+from scripts.models.agent.actor import Actor, actor_loss
 from scripts.utils.tensor_utils import update_ema_critic
 from torch.distributions import OneHotCategorical
 
@@ -82,7 +79,7 @@ def recursive_lambda_returns(env_state:torch.Tensor,
                              gamma:float, 
                              lambda_p:float,  
                              device:str, 
-                             critic:Critic) -> torch.Tensor:
+                             critic:Critic) -> Tuple:
     
     imagination_horizon = reward.shape[1]
     with torch.no_grad():
@@ -123,7 +120,10 @@ def train_agent(observation_batch:torch.Tensor,
                 device:str, 
                 gamma:float, 
                 lambda_p: float, 
-                ema_sigma:float) -> Tuple:
+                ema_sigma:float, 
+                nabla:float, 
+                optimizer:torch.optim.Adam, 
+                scaler:torch.amp.GradScaler) -> Tuple:
     
     observation_batch = observation_batch.to(device)
     action_batch = action_batch.to(device)
@@ -174,18 +174,28 @@ def train_agent(observation_batch:torch.Tensor,
 
         entropy = policy.entropy()
 
-        print(f'Lamda returns: {batch_lambda_returns.shape}')
-        print(f'State values: {state_values.shape}')
-        print(f'Log policy: {log_policy.shape}')
-        print(f'Entropy: {entropy.shape}')
-        print(f'Ema state values: {ema_state_values.shape}')
+        mean_actor_loss = actor_loss(batch_lambda_returns=batch_lambda_returns, 
+                                     state_values=state_values, 
+                                     log_policy=log_policy, 
+                                     nabla=nabla, 
+                                     entropy=entropy)
+        
+        mean_critic_loss = critic_loss(batch_lambda_returns=batch_lambda_returns, 
+                                       state_values=state_values, 
+                                       ema_state_values=ema_state_values)
+        
+        optimizer.zero_grad(set_to_none=True)
+        scaler.scale(mean_actor_loss).backward()
+        scaler.scale(mean_critic_loss).backward()
+        scaler.unscale_(optimizer)
+        
+        torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0)
+        torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0)
+        
+        scaler.step(optimizer)
+        scaler.update()
         
         update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
 
-            
-
-        
-
-        
-
-
+        mean_imagined_reward = imagined_reward.mean().item()
+        return mean_actor_loss.item(), mean_critic_loss.item(), mean_imagined_reward

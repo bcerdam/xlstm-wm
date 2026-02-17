@@ -1,6 +1,15 @@
 import torch
 import torch.nn as nn
 
+
+def critic_loss(batch_lambda_returns:torch.Tensor, 
+                state_values:torch.Tensor, 
+                ema_state_values:torch.Tensor) -> float:
+    
+    loss = torch.square(state_values - batch_lambda_returns.detach()) + torch.square(state_values - ema_state_values.detach())
+    return loss.mean()
+
+
 class Critic(nn.Module):
     def __init__(self, latent_dim, codes_per_latent, embedding_dim) -> None:
         super().__init__()

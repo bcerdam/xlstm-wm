@@ -4,6 +4,7 @@ import ale_py
 from ..utils.tensor_utils import normalize_observation, reshape_observation
 from gymnasium.wrappers import AtariPreprocessing, ClipReward
 from typing import Tuple, List
+from scripts.models.agent.actor import Actor
 
 
 def gather_steps(env_name: str, 
@@ -13,7 +14,8 @@ def gather_steps(env_name: str,
                  episodic_life: bool,
                  min_reward: float,
                  max_reward: float,
-                 observation_height_width: int) -> Tuple[List[np.ndarray], List[np.int64], List[np.float64], List[bool], List[bool]]:
+                 observation_height_width: int, 
+                 actor:Actor) -> Tuple[List[np.ndarray], List[np.int64], List[np.float64], List[bool], List[bool]]:
     
     gym.register_envs(ale_py)
     env = gym.make(id=env_name, frameskip=1)

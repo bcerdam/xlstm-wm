@@ -1,6 +1,18 @@
 import torch
 import torch.nn as nn
 
+
+def actor_loss(batch_lambda_returns:torch.Tensor, 
+               state_values:torch.Tensor, 
+               log_policy:torch.Tensor, 
+               nabla:float, 
+               entropy:torch.Tensor) -> float:
+    
+    advantage = (batch_lambda_returns - state_values).detach()
+    loss = -1*advantage*log_policy - nabla*entropy
+    return loss.mean()
+
+
 class Actor(nn.Module):
     def __init__(self, latent_dim, codes_per_latent, embedding_dim, env_actions) -> None:
         super().__init__()
