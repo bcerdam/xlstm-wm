@@ -136,6 +136,18 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     plt.savefig(os.path.join(output_dir, 'loss_plot.jpeg'), format='jpeg', dpi=200, bbox_inches='tight')
     plt.close()
 
+def save_checkpoint(encoder, decoder, tokenizer, dynamics, optimizer, scaler, step, path="output/checkpoints"):
+    os.makedirs(path, exist_ok=True)
+    torch.save({
+        'step': step,
+        'encoder': encoder.state_dict(),
+        'decoder': decoder.state_dict(),
+        'tokenizer': tokenizer.state_dict(),
+        'dynamics': dynamics.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'scaler': scaler.state_dict()
+    }, os.path.join(path, f"checkpoint_step_{step}.pth"))
+
 
 def visualize_reconstruction(dataset_path:str, 
                              weights_path:str, 
