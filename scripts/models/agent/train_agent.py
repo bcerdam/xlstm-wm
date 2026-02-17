@@ -166,36 +166,36 @@ def train_agent(observation_batch:torch.Tensor,
                                                                           device=device, 
                                                                           critic=ema_critic)
         
-        state_values = critic.forward(state=env_state).squeeze(-1)
+    state_values = critic.forward(state=env_state).squeeze(-1)
 
-        action_logits = actor.forward(state=env_state.detach())
-        policy = OneHotCategorical(logits=action_logits)
-        log_policy = policy.log_prob(imagined_action.detach())
+    action_logits = actor.forward(state=env_state.detach())
+    policy = OneHotCategorical(logits=action_logits)
+    log_policy = policy.log_prob(imagined_action.detach())
 
-        entropy = policy.entropy()
+    entropy = policy.entropy()
 
-        mean_actor_loss = actor_loss(batch_lambda_returns=batch_lambda_returns, 
-                                     state_values=state_values, 
-                                     log_policy=log_policy, 
-                                     nabla=nabla, 
-                                     entropy=entropy)
-        
-        mean_critic_loss = critic_loss(batch_lambda_returns=batch_lambda_returns, 
-                                       state_values=state_values, 
-                                       ema_state_values=ema_state_values)
-        
-        optimizer.zero_grad(set_to_none=True)
-        scaler.scale(mean_actor_loss).backward()
-        scaler.scale(mean_critic_loss).backward()
-        scaler.unscale_(optimizer)
-        
-        torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0)
-        torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0)
-        
-        scaler.step(optimizer)
-        scaler.update()
-        
-        update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
+    mean_actor_loss = actor_loss(batch_lambda_returns=batch_lambda_returns, 
+                                    state_values=state_values, 
+                                    log_policy=log_policy, 
+                                    nabla=nabla, 
+                                    entropy=entropy)
+    
+    mean_critic_loss = critic_loss(batch_lambda_returns=batch_lambda_returns, 
+                                    state_values=state_values, 
+                                    ema_state_values=ema_state_values)
+    
+    optimizer.zero_grad(set_to_none=True)
+    scaler.scale(mean_actor_loss).backward()
+    scaler.scale(mean_critic_loss).backward()
+    scaler.unscale_(optimizer)
+    
+    torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0)
+    torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0)
+    
+    scaler.step(optimizer)
+    scaler.update()
+    
+    update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
 
-        mean_imagined_reward = imagined_reward.mean().item()
-        return mean_actor_loss.item(), mean_critic_loss.item(), mean_imagined_reward
+    mean_imagined_reward = imagined_reward.mean().item()
+    return mean_actor_loss.item(), mean_critic_loss.item(), mean_imagined_reward
