@@ -84,7 +84,7 @@ if __name__ == '__main__':
     IMAGINATION_HORIZON = train_agent_cfg['imagination_horizon']
     GAMMA = train_agent_cfg['gamma']
     LAMBDA = train_agent_cfg['lambda']
-    NABLA = train_agent_cfg['entropy_coeff']
+    NABLA = train_agent_cfg['nabla']
     EMA_SIGMA = train_agent_cfg['ema_sigma']
     AGENT_LEARNING_RATE = train_agent_cfg['learning_rate']
 
@@ -138,7 +138,15 @@ if __name__ == '__main__':
 
     training_steps_finished = 0
     for epoch in range(EPOCHS):
-        observations, actions, rewards, terminations, episode_starts = gather_steps(**env_cfg)
+        observations, actions, rewards, terminations, episode_starts = gather_steps(**env_cfg, 
+                                                                                    actor=actor, 
+                                                                                    encoder=categorical_encoder, 
+                                                                                    tokenizer=tokenizer, 
+                                                                                    xlstm_dm=dynamics_model, 
+                                                                                    latent_dim=LATENT_DIM, 
+                                                                                    codes_per_latent=CODES_PER_LATENT, 
+                                                                                    device=DEVICE, 
+                                                                                    context_length=CONTEXT_LENGTH)
         update_replay_buffer(replay_buffer_path=REPLAY_BUFFER_PATH, 
                             observations=observations, 
                             actions=actions,
@@ -228,7 +236,10 @@ if __name__ == '__main__':
                 'reconstruction': reconstruction_loss.item(),
                 'reward': rewards_loss.item(),
                 'termination': terminations_loss.item(),
-                'dynamics': dynamics_loss.item()
+                'dynamics': dynamics_loss.item(), 
+                'actor': mean_actor_loss,
+                'critic': mean_critic_loss,
+                'imagined_reward': mean_imagined_reward
             }
             
             epoch_loss_history.append(step_metrics)

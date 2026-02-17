@@ -26,7 +26,9 @@ def gather_steps(env_name: str,
                  tokenizer:Tokenizer, 
                  xlstm_dm:XLSTM_DM, 
                  latent_dim:int, 
-                 codes_per_latent:int) -> Tuple[List[np.ndarray], List[np.int64], List[np.float64], List[bool], List[bool]]:
+                 codes_per_latent:int, 
+                 device:str, 
+                 context_length:int) -> Tuple[List[np.ndarray], List[np.int64], List[np.float64], List[bool], List[bool]]:
     
     gym.register_envs(ale_py)
     env = gym.make(id=env_name, frameskip=1)
@@ -44,55 +46,66 @@ def gather_steps(env_name: str,
     all_terminations = [] 
     all_episode_starts = []
 
+    context_tokens = None
+    embedding_dim = tokenizer.embedding_dim 
+    current_hidden_state = torch.zeros(1, 1, embedding_dim, device=device)
+
     observation, info = env.reset()
     observation = reshape_observation(normalize_observation(observation=observation))
     episode_start = True
-    for step in range(env_steps_per_epoch):
-        all_episode_starts.append(episode_start)
-        all_observations.append(observation)
+    with torch.no_grad():
+        for step in range(env_steps_per_epoch):
+            all_episode_starts.append(episode_start)
+            all_observations.append(observation)
 
-        latent = encoder.forward(observations_batch=observation, 
-                                 batch_size=1, 
-                                 sequence_length=1, 
-                                 latent_dim=latent_dim, 
-                                 codes_per_latent=codes_per_latent)
-        print(f'latent: {latent.shape}')
-        sampled_latent = sample(latents_batch=latent, batch_size=1, sequence_length=1)
-        print(f'sampled latent: {sampled_latent.shape}')
+            observation_tensor = torch.from_numpy(observation).unsqueeze(0).unsqueeze(0).to(device=device)
+            latent = encoder.forward(observations_batch=observation_tensor, 
+                                    batch_size=1, 
+                                    sequence_length=1, 
+                                    latent_dim=latent_dim, 
+                                    codes_per_latent=codes_per_latent)
+            sampled_latent = sample(latents_batch=latent, batch_size=1, sequence_length=1)
 
-        action_array = np.zeros(env.action_space.n, dtype=np.float32)
-        if step == 0:
-            action = env.action_space.sample()
-            print(f'action: {action.shape}')
-        else:
-            action_logits = actor(state=env_state.detach())
-            policy = OneHotCategorical(logits=action_logits)
-            action = policy.sample()
-            print(f'action_logits: {action_logits.shape}')
-            print(f'policy: {policy.shape}')
-            print(f'actor action: {action.shape}')
-        action_array[action] = 1.0
-        all_actions.append(action_array)
+            action_array = np.zeros(env.action_space.n, dtype=np.float32)
+            env_state = torch.concat([sampled_latent, current_hidden_state], dim=-1)
 
-        token = tokenizer.forward(latents_sampled_batch=sampled_latent, actions_batch=action_array)
-        hidden_state = xlstm_dm.forward(tokens_batch=token)
-        env_state = torch.concat([sampled_latent, hidden_state], dim=-1)
+            if step == 0:
+                action = env.action_space.sample()
+            else:
+                action_logits = actor(state=env_state)
+                policy = OneHotCategorical(logits=action_logits)
+                action = torch.argmax(policy.sample()).item()
 
-        print(f'token: {token.shape}')
-        print(f'hidden state: {hidden_state.shape}')
-        print(f'env state: {env_state.shape}')
+            action_array[action] = 1.0
+            tensor_action_array = torch.from_numpy(action_array).unsqueeze(0).unsqueeze(0).to(device=device)
+            all_actions.append(action_array)
 
-        episode_start = False
+            token = tokenizer.forward(latents_sampled_batch=sampled_latent, actions_batch=tensor_action_array)
 
-        observation, reward, termination, truncated, info = env.step(action)
-        observation = reshape_observation(normalize_observation(observation=observation))
+            if context_tokens is None:
+                context_tokens = token
+            else:
+                context_tokens = torch.cat([context_tokens, token], dim=1)
+                if context_tokens.shape[1] > context_length:
+                    context_tokens = context_tokens[:, -context_length:, :]
 
-        all_rewards.append(reward)
-        all_terminations.append(termination)
+            _, _, _, hidden_state = xlstm_dm.forward(tokens_batch=context_tokens)
+            current_hidden_state = hidden_state[:, -1:, :]
 
-        if termination or truncated:
-            observation, info = env.reset()
+            episode_start = False
+
+            observation, reward, termination, truncated, info = env.step(action)
             observation = reshape_observation(normalize_observation(observation=observation))
-            episode_start = True
+
+            all_rewards.append(reward)
+            all_terminations.append(termination)
+
+            if termination or truncated:
+                observation, info = env.reset()
+                observation = reshape_observation(normalize_observation(observation=observation))
+                episode_start = True
+
+                context_tokens = None
+                current_hidden_state = torch.zeros(1, 1, embedding_dim, device=device)
 
     return all_observations, all_actions, all_rewards, all_terminations, all_episode_starts

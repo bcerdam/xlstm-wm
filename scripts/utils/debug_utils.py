@@ -50,9 +50,11 @@ def rollout_video(h5_path:str, start_idx:int, steps:int, video_fps:int, output_p
 
 
 def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epoch: int, epochs: int) -> None:
+    # 1. Calculate Averages for this Epoch
     keys = new_losses[0].keys()
     epoch_means = {k: np.mean([d[k] for d in new_losses]) for k in keys}
     
+    # 2. Load/Update History
     output_dir = 'output/logs'
     os.makedirs(output_dir, exist_ok=True)
     history_path = os.path.join(output_dir, 'loss_history.npy')
@@ -67,52 +69,72 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
 
     np.save(history_path, loss_history)
 
+    # 3. Setup Plotting
     current_epoch = len(loss_history['total'])
     max_x = epochs * training_steps_per_epoch
+    # We define x_values based on epochs, scaled to total steps
     x_values = np.arange(1, current_epoch + 1) * training_steps_per_epoch
 
-    plt.figure(figsize=(6, 2), dpi=200)
+    # Create 3 Subplots vertically (Height increased to 6)
+    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6, 6), dpi=200, sharex=True)
     
-    loss_styles = {
-        'total':          {'color': '#D32F2F', 'alpha': 1.0, 'label': 'Total', 'linewidth': 1.0},
-        'reconstruction': {'color': '#1976D2', 'alpha': 1.0, 'label': 'Recon', 'linewidth': 1.0},
-        'reward':         {'color': '#388E3C', 'alpha': 1.0, 'label': 'Reward', 'linewidth': 1.0},
-        'termination':    {'color': '#FBC02D', 'alpha': 1.0, 'label': 'Term',   'linewidth': 1.0},
-        'dynamics':       {'color': '#00BCD4', 'alpha': 1.0, 'label': 'Dyn',    'linewidth': 1.0},
+    # --- SUBPLOT 1: World Model Losses ---
+    ax_wm = axes[0]
+    wm_styles = {
+        'total':          {'color': '#D32F2F', 'label': 'Total'},
+        'reconstruction': {'color': '#1976D2', 'label': 'Recon'},
+        'reward':         {'color': '#388E3C', 'label': 'Reward'},
+        'termination':    {'color': '#FBC02D', 'label': 'Term'},
+        'dynamics':       {'color': '#00BCD4', 'label': 'Dyn'},
+    }
+    
+    for key, style in wm_styles.items():
+        if key in loss_history:
+            ax_wm.plot(x_values, loss_history[key], linewidth=1.0, alpha=0.9, **style)
+    
+    ax_wm.set_title(f"World Model Losses (Epoch {current_epoch})", fontsize=7, fontweight='bold')
+    ax_wm.set_ylabel("Loss", fontsize=6)
+    ax_wm.legend(fontsize=5, loc='upper right', framealpha=0.8)
+    ax_wm.grid(True, linestyle='--', alpha=0.3)
+
+    # --- SUBPLOT 2: Actor / Critic Losses ---
+    ax_ac = axes[1]
+    ac_styles = {
+        'actor':  {'color': '#E91E63', 'label': 'Actor Loss'},
+        'critic': {'color': '#673AB7', 'label': 'Critic Loss'},
     }
 
-    for key, style in loss_styles.items():
+    for key, style in ac_styles.items():
         if key in loss_history:
-            plt.plot(x_values, loss_history[key], **style)
+            ax_ac.plot(x_values, loss_history[key], linewidth=1.0, alpha=0.9, **style)
 
-    plt.grid(True, linestyle='--', alpha=0.3, linewidth=0.5)
-    plt.xlim(0, max_x)
-    
-    plt.xlabel("Total Training Steps", fontsize=5)
-    plt.ylabel("Loss", fontsize=5)
-    plt.title(f"Loss Components (Epoch {current_epoch})", fontsize=5, pad=4)
-    
-    plt.legend(fontsize=5, loc='upper right', framealpha=0.8, borderpad=0.3)
-    
-    ax = plt.gca()
-    ax.tick_params(axis='both', which='major', labelsize=5, pad=2)
-    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/1000)}K'))
+    ax_ac.set_title("Agent Losses", fontsize=7, fontweight='bold')
+    ax_ac.set_ylabel("Loss", fontsize=6)
+    ax_ac.legend(fontsize=5, loc='upper right', framealpha=0.8)
+    ax_ac.grid(True, linestyle='--', alpha=0.3)
 
-    plt.tight_layout(pad=0.3)
+    # --- SUBPLOT 3: Imagined Reward ---
+    ax_rew = axes[2]
+    if 'imagined_reward' in loss_history:
+        ax_rew.plot(x_values, loss_history['imagined_reward'], color='#FF9800', linewidth=1.0, label='Mean Imagined Reward')
+
+    ax_rew.set_title("Optimism (Imagined Reward)", fontsize=7, fontweight='bold')
+    ax_rew.set_ylabel("Reward", fontsize=6)
+    ax_rew.set_xlabel("Total Training Steps", fontsize=6)
+    ax_rew.legend(fontsize=5, loc='upper left', framealpha=0.8)
+    ax_rew.grid(True, linestyle='--', alpha=0.3)
+
+    # --- Formatting ---
+    # Only apply K-formatter to the bottom axis
+    ax_rew.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/1000)}K'))
+    ax_rew.set_xlim(0, max_x)
+
+    for ax in axes:
+        ax.tick_params(axis='both', which='major', labelsize=5)
+
+    plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'loss_plot.jpeg'), format='jpeg', dpi=200, bbox_inches='tight')
     plt.close()
-
-def save_checkpoint(encoder, decoder, tokenizer, dynamics, optimizer, scaler, step, path="output/checkpoints"):
-    os.makedirs(path, exist_ok=True)
-    torch.save({
-        'step': step,
-        'encoder': encoder.state_dict(),
-        'decoder': decoder.state_dict(),
-        'tokenizer': tokenizer.state_dict(),
-        'dynamics': dynamics.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        'scaler': scaler.state_dict()
-    }, os.path.join(path, f"checkpoint_step_{step}.pth"))
 
 
 def visualize_reconstruction(dataset_path:str, 
