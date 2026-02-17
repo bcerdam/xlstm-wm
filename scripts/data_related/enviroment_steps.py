@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 import gymnasium as gym
 import ale_py
@@ -5,6 +6,11 @@ from ..utils.tensor_utils import normalize_observation, reshape_observation
 from gymnasium.wrappers import AtariPreprocessing, ClipReward
 from typing import Tuple, List
 from scripts.models.agent.actor import Actor
+from scripts.models.categorical_vae.encoder import CategoricalEncoder
+from scripts.models.categorical_vae.sampler import sample
+from scripts.models.dynamics_modeling.tokenizer import Tokenizer
+from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
+from torch.distributions import OneHotCategorical
 
 
 def gather_steps(env_name: str, 
@@ -15,7 +21,12 @@ def gather_steps(env_name: str,
                  min_reward: float,
                  max_reward: float,
                  observation_height_width: int, 
-                 actor:Actor) -> Tuple[List[np.ndarray], List[np.int64], List[np.float64], List[bool], List[bool]]:
+                 actor:Actor, 
+                 encoder:CategoricalEncoder, 
+                 tokenizer:Tokenizer, 
+                 xlstm_dm:XLSTM_DM, 
+                 latent_dim:int, 
+                 codes_per_latent:int) -> Tuple[List[np.ndarray], List[np.int64], List[np.float64], List[bool], List[bool]]:
     
     gym.register_envs(ale_py)
     env = gym.make(id=env_name, frameskip=1)
@@ -40,14 +51,40 @@ def gather_steps(env_name: str,
         all_episode_starts.append(episode_start)
         all_observations.append(observation)
 
+        latent = encoder.forward(observations_batch=observation, 
+                                 batch_size=1, 
+                                 sequence_length=1, 
+                                 latent_dim=latent_dim, 
+                                 codes_per_latent=codes_per_latent)
+        print(f'latent: {latent.shape}')
+        sampled_latent = sample(latents_batch=latent, batch_size=1, sequence_length=1)
+        print(f'sampled latent: {sampled_latent.shape}')
+
         action_array = np.zeros(env.action_space.n, dtype=np.float32)
-        random_action = env.action_space.sample()
-        action_array[random_action] = 1.0
+        if step == 0:
+            action = env.action_space.sample()
+            print(f'action: {action.shape}')
+        else:
+            action_logits = actor(state=env_state.detach())
+            policy = OneHotCategorical(logits=action_logits)
+            action = policy.sample()
+            print(f'action_logits: {action_logits.shape}')
+            print(f'policy: {policy.shape}')
+            print(f'actor action: {action.shape}')
+        action_array[action] = 1.0
         all_actions.append(action_array)
+
+        token = tokenizer.forward(latents_sampled_batch=sampled_latent, actions_batch=action_array)
+        hidden_state = xlstm_dm.forward(tokens_batch=token)
+        env_state = torch.concat([sampled_latent, hidden_state], dim=-1)
+
+        print(f'token: {token.shape}')
+        print(f'hidden state: {hidden_state.shape}')
+        print(f'env state: {env_state.shape}')
 
         episode_start = False
 
-        observation, reward, termination, truncated, info = env.step(random_action)
+        observation, reward, termination, truncated, info = env.step(action)
         observation = reshape_observation(normalize_observation(observation=observation))
 
         all_rewards.append(reward)
