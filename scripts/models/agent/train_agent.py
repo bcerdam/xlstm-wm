@@ -11,10 +11,14 @@ from scripts.models.dynamics_modeling.tokenizer import Tokenizer
 from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
 from scripts.models.categorical_vae.sampler import sample
 from scripts.models.agent.critic import Critic
+from scripts.models.agent.actor import Actor
+from scripts.utils.tensor_utils import update_ema_critic
+from torch.distributions import OneHotCategorical
 
 
 def dream(xlstm_dm:XLSTM_DM, 
-          tokenizer:Tokenizer,
+          tokenizer:Tokenizer, 
+          actor:Actor, 
           tokens:torch.Tensor, 
           imagination_horizon:int, 
           latent_dim:int, 
@@ -24,6 +28,7 @@ def dream(xlstm_dm:XLSTM_DM,
           device:str) -> Tuple:
     
     imagined_latents = []
+    imagined_actions = []
     imagined_rewards = []
     imagined_terminations = []
     hidden_states = []
@@ -38,19 +43,26 @@ def dream(xlstm_dm:XLSTM_DM,
         imagined_terminations.append(termination[:, -1, :])
         hidden_states.append(hidden_state[:, -1, :])
 
-        next_action = torch.zeros((batch_size, 1, env_actions), device=device)
-        random_indices = torch.randint(0, env_actions, (batch_size,), device=device)
-        next_action[torch.arange(batch_size), 0, random_indices] = 1.0
+        flattened_latent = next_latent_sample.view(batch_size, -1)
+        current_hidden = hidden_state[:, -1, :]
+        env_state = torch.cat([flattened_latent, current_hidden], dim=-1)
+
+        action_logits = actor.forward(state=env_state)
+        policy = OneHotCategorical(logits=action_logits)
+        next_action = policy.sample()
+        
+        imagined_actions.append(next_action)
 
         next_token = tokenizer.forward(latents_sampled_batch=next_latent_sample, actions_batch=next_action)
         tokens = torch.cat([tokens[:, 1:], next_token], dim=1)
 
     imagined_latents = torch.cat(imagined_latents, dim=1)
+    imagined_actions = torch.stack(imagined_actions, dim=1)
     imagined_rewards = torch.stack(imagined_rewards, dim=1)
     imagined_terminations = torch.stack(imagined_terminations, dim=1)
     hidden_states = torch.stack(hidden_states, dim=1)    
 
-    return imagined_latents, imagined_rewards, imagined_terminations, hidden_states
+    return imagined_latents, imagined_actions, imagined_rewards, imagined_terminations, hidden_states
 
 
 def lambda_returns(reward:torch.Tensor, 
@@ -93,26 +105,26 @@ def recursive_lambda_returns(env_state:torch.Tensor,
     return batch_lambda_returns, state_values
 
 
-def train_agent(replay_buffer_path:str, 
+def train_agent(observation_batch:torch.Tensor, 
+                action_batch:torch.Tensor, 
+                reward_batch:torch.Tensor, 
+                termination_batch:torch.Tensor, 
                 context_length:int, 
                 imagination_horizon:int, 
-                imagination_batch_size:int, 
                 env_actions:int, 
                 latent_dim:int, 
                 codes_per_latent:int,  
                 encoder:CategoricalEncoder, 
                 tokenizer:Tokenizer, 
                 xlstm_dm:XLSTM_DM, 
+                actor:Actor, 
                 critic:Critic, 
+                ema_critic:Critic,
                 device:str, 
                 gamma:float, 
-                lambda_p: float) -> Tuple:
+                lambda_p: float, 
+                ema_sigma:float) -> Tuple:
     
-    dataset = AtariDataset(replay_buffer_path=replay_buffer_path, sequence_length=context_length)
-    dataloader = DataLoader(dataset=dataset, batch_size=imagination_batch_size, shuffle=True)
-
-    observation_batch, action_batch, reward_batch, termination_batch = next(iter(dataloader))
-
     observation_batch = observation_batch.to(device)
     action_batch = action_batch.to(device)
     reward_batch = reward_batch.to(device)
@@ -133,16 +145,17 @@ def train_agent(replay_buffer_path:str,
 
         tokens_batch = tokenizer.forward(latents_sampled_batch=latent_sampled_batch, actions_batch=action_batch)
 
-        imagined_latent, imagined_reward, imagined_termination, hidden_state = dream(xlstm_dm=xlstm_dm, 
-                                                                                     tokenizer=tokenizer, 
-                                                                                     tokens=tokens_batch, 
-                                                                                     imagination_horizon=imagination_horizon, 
-                                                                                     latent_dim=latent_dim, 
-                                                                                     codes_per_latent=codes_per_latent, 
-                                                                                     batch_size=current_batch_size, 
-                                                                                     env_actions=env_actions, 
-                                                                                     device=device)
-        # [1024, 16, 3584]
+        imagined_latent, imagined_action, imagined_reward, imagined_termination, hidden_state = dream(xlstm_dm=xlstm_dm, 
+                                                                                                      tokenizer=tokenizer, 
+                                                                                                      actor=actor, 
+                                                                                                      tokens=tokens_batch, 
+                                                                                                      imagination_horizon=imagination_horizon, 
+                                                                                                      latent_dim=latent_dim, 
+                                                                                                      codes_per_latent=codes_per_latent, 
+                                                                                                      batch_size=current_batch_size, 
+                                                                                                      env_actions=env_actions, 
+                                                                                                      device=device)
+        
         env_state = torch.concat([imagined_latent, hidden_state], dim=-1)
 
         batch_lambda_returns, ema_state_values = recursive_lambda_returns(env_state=env_state, 
@@ -151,9 +164,23 @@ def train_agent(replay_buffer_path:str,
                                                                           gamma=gamma, 
                                                                           lambda_p=lambda_p, 
                                                                           device=device, 
-                                                                          critic=critic)
+                                                                          critic=ema_critic)
         
-        print(batch_lambda_returns.shape, ema_state_values.shape)
+        state_values = critic.forward(state=env_state)
+
+        action_logits = actor.forward(state=env_state.detach())
+        policy = OneHotCategorical(logits=action_logits)
+        log_policy = policy.log_prob(imagined_action.detach())
+
+        entropy = policy.entropy()
+
+        print(f'Lamda returns: {batch_lambda_returns.shape}')
+        print(f'State values: {state_values.shape}')
+        print(f'Log policy: {log_policy.shape}')
+        print(f'Entropy: {entropy.shape}')
+        print(f'Ema state values: {ema_state_values.shape}')
+        
+        update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
 
             
 

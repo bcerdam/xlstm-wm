@@ -4,6 +4,8 @@ import yaml
 import os
 import shutil
 import lpips
+import copy
+from torch.utils.data import DataLoader
 from scripts.data_related.enviroment_steps import gather_steps
 from scripts.data_related.replay_buffer import update_replay_buffer
 from scripts.data_related.atari_dataset import AtariDataset
@@ -18,6 +20,7 @@ from scripts.models.dynamics_modeling.dynamics_model_step import dm_fwd_step
 from scripts.models.dynamics_modeling.total_loss import total_loss_step
 from scripts.models.agent.train_agent import train_agent
 from scripts.models.agent.critic import Critic
+from scripts.models.agent.actor import Actor
 
 import warnings
 warnings.filterwarnings("ignore", message="The parameter 'pretrained' is deprecated")
@@ -82,6 +85,7 @@ if __name__ == '__main__':
     GAMMA = train_agent_cfg['gamma']
     LAMBDA = train_agent_cfg['lambda']
     ENTROPY_COEFF = train_agent_cfg['entropy_coeff']
+    EMA_SIGMA = train_agent_cfg['ema_sigma']
     AGENT_LEARNING_RATE = train_agent_cfg['learning_rate']
 
     categorical_encoder = CategoricalEncoder(latent_dim=LATENT_DIM, 
@@ -112,12 +116,24 @@ if __name__ == '__main__':
     critic = Critic(latent_dim=LATENT_DIM, 
                     codes_per_latent=CODES_PER_LATENT, 
                     embedding_dim=EMBEDDING_DIM).to(DEVICE)
+    
+    ema_critic = copy.deepcopy(critic).requires_grad_(False).to(DEVICE)
+
+    actor = Actor(latent_dim=LATENT_DIM, 
+                  codes_per_latent=CODES_PER_LATENT, 
+                  embedding_dim=EMBEDDING_DIM, 
+                  env_actions=ENV_ACTIONS).to(DEVICE)
 
     OPTIMIZER = torch.optim.Adam(list(categorical_encoder.parameters()) + 
                                  list(categorical_decoder.parameters()) +
                                  list(tokenizer.parameters()) + 
                                  list(dynamics_model.parameters()),
                                  lr=WORLD_MODEL_LEARNING_RATE)
+    
+    AGENT_OPTIMIZER = torch.optim.Adam(list(critic.parameters()),
+                                       list(actor.parameters()),  
+                                       lr=AGENT_LEARNING_RATE)
+
     SCALER = torch.amp.GradScaler(enabled=True)
 
     training_steps_finished = 0
@@ -130,6 +146,8 @@ if __name__ == '__main__':
                             terminations=terminations, 
                             episode_starts=episode_starts)
         atari_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=SEQUENCE_LENGTH)
+        agent_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=CONTEXT_LENGTH)
+        agent_dataloader = DataLoader(dataset=agent_dataset, batch_size=IMAGINATION_BATCH_SIZE, shuffle=True)
 
         epoch_loss_history = []
         for step in range(TRAINING_STEPS_PER_EPOCH):
@@ -170,20 +188,26 @@ if __name__ == '__main__':
                                               optimizer=OPTIMIZER, 
                                               scaler=SCALER)
             
-            train_agent(replay_buffer_path=REPLAY_BUFFER_PATH, 
+            observation_batch, action_batch, reward_batch, termination_batch = next(iter(agent_dataloader))
+            train_agent(observation_batch=observation_batch, 
+                        action_batch=action_batch, 
+                        reward_batch=reward_batch, 
+                        termination_batch=termination_batch, 
                         context_length=CONTEXT_LENGTH, 
                         imagination_horizon=IMAGINATION_HORIZON, 
-                        imagination_batch_size=IMAGINATION_BATCH_SIZE, 
                         env_actions=ENV_ACTIONS, 
                         latent_dim=LATENT_DIM, 
                         codes_per_latent=CODES_PER_LATENT, 
                         encoder=categorical_encoder, 
                         tokenizer=tokenizer, 
                         xlstm_dm=dynamics_model, 
+                        actor=actor, 
                         critic=critic,
+                        ema_critic=ema_critic,
                         device=DEVICE, 
                         gamma=GAMMA, 
-                        lambda_p=LAMBDA)
+                        lambda_p=LAMBDA, 
+                        ema_sigma=EMA_SIGMA)
             
             training_steps_finished += 1
 
