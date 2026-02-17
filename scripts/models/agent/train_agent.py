@@ -53,7 +53,7 @@ def dream(xlstm_dm:XLSTM_DM,
         
         imagined_actions.append(next_action)
 
-        next_token = tokenizer.forward(latents_sampled_batch=next_latent_sample, actions_batch=next_action)
+        next_token = tokenizer.forward(latents_sampled_batch=next_latent_sample, actions_batch=next_action.unsqueeze(dim=1))
         tokens = torch.cat([tokens[:, 1:], next_token], dim=1)
 
     imagined_latents = torch.cat(imagined_latents, dim=1)
@@ -102,7 +102,7 @@ def recursive_lambda_returns(env_state:torch.Tensor,
                                                               lambda_p=lambda_p, 
                                                               state_value=state_value_t_plus_1, 
                                                               g_value=g_value_t_plus_1)
-    return batch_lambda_returns, state_values
+    return batch_lambda_returns.squeeze(-1), state_values.squeeze(-1)
 
 
 def train_agent(observation_batch:torch.Tensor, 
@@ -166,7 +166,7 @@ def train_agent(observation_batch:torch.Tensor,
                                                                           device=device, 
                                                                           critic=ema_critic)
         
-        state_values = critic.forward(state=env_state)
+        state_values = critic.forward(state=env_state).squeeze(-1)
 
         action_logits = actor.forward(state=env_state.detach())
         policy = OneHotCategorical(logits=action_logits)
