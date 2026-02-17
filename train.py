@@ -148,7 +148,9 @@ if __name__ == '__main__':
                                                                                     codes_per_latent=CODES_PER_LATENT, 
                                                                                     device=DEVICE, 
                                                                                     context_length=CONTEXT_LENGTH)
-        epoch_mean_real_reward = np.mean(rewards) if rewards else 0.0
+        total_reward = np.sum(rewards)
+        num_episodes = np.sum(episode_starts)
+        epoch_mean_score = total_reward / num_episodes if num_episodes > 0 else total_reward
 
         update_replay_buffer(replay_buffer_path=REPLAY_BUFFER_PATH, 
                             observations=observations, 
@@ -243,7 +245,7 @@ if __name__ == '__main__':
                 'actor': mean_actor_loss,
                 'critic': mean_critic_loss,
                 'imagined_reward': mean_imagined_reward, 
-                'real_reward': epoch_mean_real_reward
+                'real_reward': epoch_mean_score
             }
             
             epoch_loss_history.append(step_metrics)

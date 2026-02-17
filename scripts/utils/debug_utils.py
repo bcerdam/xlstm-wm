@@ -127,8 +127,9 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     if 'real_reward' in loss_history:
         ax_real.plot(x_values, loss_history['real_reward'], color='#4CAF50', linewidth=1.0, label='Real')
 
-    ax_real.set_title("Mean Real Reward (Per Step)", fontsize=7, fontweight='bold')
-    ax_real.set_ylabel("Reward", fontsize=6)
+    # CHANGED TITLE HERE
+    ax_real.set_title("Mean Real Episode Return", fontsize=7, fontweight='bold')
+    ax_real.set_ylabel("Score", fontsize=6)
     ax_real.set_xlabel("Total Training Steps", fontsize=6)
     ax_real.legend(fontsize=5, loc='upper left', framealpha=0.8)
     ax_real.grid(True, linestyle='--', alpha=0.3)
