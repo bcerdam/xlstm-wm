@@ -50,7 +50,7 @@ def rollout_video(h5_path:str, start_idx:int, steps:int, video_fps:int, output_p
 
 
 def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epoch: int, epochs: int) -> None:
-    # 1. Calculate Averages for this Epoch
+    # 1. Calculate Averages
     keys = new_losses[0].keys()
     epoch_means = {k: np.mean([d[k] for d in new_losses]) for k in keys}
     
@@ -72,13 +72,12 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     # 3. Setup Plotting
     current_epoch = len(loss_history['total'])
     max_x = epochs * training_steps_per_epoch
-    # We define x_values based on epochs, scaled to total steps
     x_values = np.arange(1, current_epoch + 1) * training_steps_per_epoch
 
-    # Create 3 Subplots vertically (Height increased to 6)
-    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6, 6), dpi=200, sharex=True)
+    # Create 4 Subplots vertically (Height increased to 8)
+    fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(6, 8), dpi=200, sharex=True)
     
-    # --- SUBPLOT 1: World Model Losses ---
+    # --- SUBPLOT 1: World Model Loss ---
     ax_wm = axes[0]
     wm_styles = {
         'total':          {'color': '#D32F2F', 'label': 'Total'},
@@ -92,42 +91,51 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
         if key in loss_history:
             ax_wm.plot(x_values, loss_history[key], linewidth=1.0, alpha=0.9, **style)
     
-    ax_wm.set_title(f"World Model Losses (Epoch {current_epoch})", fontsize=7, fontweight='bold')
+    ax_wm.set_title("World Model Loss", fontsize=7, fontweight='bold')
     ax_wm.set_ylabel("Loss", fontsize=6)
     ax_wm.legend(fontsize=5, loc='upper right', framealpha=0.8)
     ax_wm.grid(True, linestyle='--', alpha=0.3)
 
-    # --- SUBPLOT 2: Actor / Critic Losses ---
+    # --- SUBPLOT 2: Actor Critic Loss ---
     ax_ac = axes[1]
     ac_styles = {
-        'actor':  {'color': '#E91E63', 'label': 'Actor Loss'},
-        'critic': {'color': '#673AB7', 'label': 'Critic Loss'},
+        'actor':  {'color': '#E91E63', 'label': 'Actor'},
+        'critic': {'color': '#673AB7', 'label': 'Critic'},
     }
 
     for key, style in ac_styles.items():
         if key in loss_history:
             ax_ac.plot(x_values, loss_history[key], linewidth=1.0, alpha=0.9, **style)
 
-    ax_ac.set_title("Agent Losses", fontsize=7, fontweight='bold')
+    ax_ac.set_title("Actor Critic Loss", fontsize=7, fontweight='bold')
     ax_ac.set_ylabel("Loss", fontsize=6)
     ax_ac.legend(fontsize=5, loc='upper right', framealpha=0.8)
     ax_ac.grid(True, linestyle='--', alpha=0.3)
 
-    # --- SUBPLOT 3: Imagined Reward ---
-    ax_rew = axes[2]
+    # --- SUBPLOT 3: Mean Imagined Reward ---
+    ax_im = axes[2]
     if 'imagined_reward' in loss_history:
-        ax_rew.plot(x_values, loss_history['imagined_reward'], color='#FF9800', linewidth=1.0, label='Mean Imagined Reward')
+        ax_im.plot(x_values, loss_history['imagined_reward'], color='#FF9800', linewidth=1.0, label='Imagined')
 
-    ax_rew.set_title("Optimism (Imagined Reward)", fontsize=7, fontweight='bold')
-    ax_rew.set_ylabel("Reward", fontsize=6)
-    ax_rew.set_xlabel("Total Training Steps", fontsize=6)
-    ax_rew.legend(fontsize=5, loc='upper left', framealpha=0.8)
-    ax_rew.grid(True, linestyle='--', alpha=0.3)
+    ax_im.set_title("Mean Imagined Reward", fontsize=7, fontweight='bold')
+    ax_im.set_ylabel("Reward", fontsize=6)
+    ax_im.legend(fontsize=5, loc='upper left', framealpha=0.8)
+    ax_im.grid(True, linestyle='--', alpha=0.3)
+
+    # --- SUBPLOT 4: Real Mean Reward ---
+    ax_real = axes[3]
+    if 'real_reward' in loss_history:
+        ax_real.plot(x_values, loss_history['real_reward'], color='#4CAF50', linewidth=1.0, label='Real')
+
+    ax_real.set_title("Mean Real Reward (Per Step)", fontsize=7, fontweight='bold')
+    ax_real.set_ylabel("Reward", fontsize=6)
+    ax_real.set_xlabel("Total Training Steps", fontsize=6)
+    ax_real.legend(fontsize=5, loc='upper left', framealpha=0.8)
+    ax_real.grid(True, linestyle='--', alpha=0.3)
 
     # --- Formatting ---
-    # Only apply K-formatter to the bottom axis
-    ax_rew.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/1000)}K'))
-    ax_rew.set_xlim(0, max_x)
+    ax_real.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/1000)}K'))
+    ax_real.set_xlim(0, max_x)
 
     for ax in axes:
         ax.tick_params(axis='both', which='major', labelsize=5)
@@ -135,6 +143,7 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'loss_plot.jpeg'), format='jpeg', dpi=200, bbox_inches='tight')
     plt.close()
+
 
 def save_checkpoint(encoder, decoder, tokenizer, dynamics, optimizer, scaler, step, path="output/checkpoints"):
     os.makedirs(path, exist_ok=True)

@@ -5,6 +5,7 @@ import os
 import shutil
 import lpips
 import copy
+import numpy as np
 from torch.utils.data import DataLoader
 from scripts.data_related.enviroment_steps import gather_steps
 from scripts.data_related.replay_buffer import update_replay_buffer
@@ -147,6 +148,8 @@ if __name__ == '__main__':
                                                                                     codes_per_latent=CODES_PER_LATENT, 
                                                                                     device=DEVICE, 
                                                                                     context_length=CONTEXT_LENGTH)
+        epoch_mean_real_reward = np.mean(rewards) if rewards else 0.0
+
         update_replay_buffer(replay_buffer_path=REPLAY_BUFFER_PATH, 
                             observations=observations, 
                             actions=actions,
@@ -239,7 +242,8 @@ if __name__ == '__main__':
                 'dynamics': dynamics_loss.item(), 
                 'actor': mean_actor_loss,
                 'critic': mean_critic_loss,
-                'imagined_reward': mean_imagined_reward
+                'imagined_reward': mean_imagined_reward, 
+                'real_reward': epoch_mean_real_reward
             }
             
             epoch_loss_history.append(step_metrics)
