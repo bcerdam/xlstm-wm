@@ -50,11 +50,9 @@ def rollout_video(h5_path:str, start_idx:int, steps:int, video_fps:int, output_p
 
 
 def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epoch: int, epochs: int) -> None:
-    # 1. Calculate Averages
     keys = new_losses[0].keys()
     epoch_means = {k: np.mean([d[k] for d in new_losses]) for k in keys}
     
-    # 2. Load/Update History
     output_dir = 'output/logs'
     os.makedirs(output_dir, exist_ok=True)
     history_path = os.path.join(output_dir, 'loss_history.npy')
@@ -69,15 +67,12 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
 
     np.save(history_path, loss_history)
 
-    # 3. Setup Plotting
     current_epoch = len(loss_history['total'])
     max_x = epochs * training_steps_per_epoch
     x_values = np.arange(1, current_epoch + 1) * training_steps_per_epoch
 
-    # Create 4 Subplots vertically (Height increased to 8)
     fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(6, 8), dpi=200, sharex=True)
     
-    # --- SUBPLOT 1: World Model Loss ---
     ax_wm = axes[0]
     wm_styles = {
         'total':          {'color': '#D32F2F', 'label': 'Total'},
@@ -96,7 +91,6 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     ax_wm.legend(fontsize=5, loc='upper right', framealpha=0.8)
     ax_wm.grid(True, linestyle='--', alpha=0.3)
 
-    # --- SUBPLOT 2: Actor Critic Loss ---
     ax_ac = axes[1]
     ac_styles = {
         'actor':  {'color': '#E91E63', 'label': 'Actor'},
@@ -112,7 +106,6 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     ax_ac.legend(fontsize=5, loc='upper right', framealpha=0.8)
     ax_ac.grid(True, linestyle='--', alpha=0.3)
 
-    # --- SUBPLOT 3: Mean Imagined Reward ---
     ax_im = axes[2]
     if 'imagined_reward' in loss_history:
         ax_im.plot(x_values, loss_history['imagined_reward'], color='#FF9800', linewidth=1.0, label='Imagined')
@@ -122,19 +115,16 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     ax_im.legend(fontsize=5, loc='upper left', framealpha=0.8)
     ax_im.grid(True, linestyle='--', alpha=0.3)
 
-    # --- SUBPLOT 4: Real Mean Reward ---
     ax_real = axes[3]
     if 'real_reward' in loss_history:
         ax_real.plot(x_values, loss_history['real_reward'], color='#4CAF50', linewidth=1.0, label='Real')
 
-    # CHANGED TITLE HERE
     ax_real.set_title("Mean Real Episode Return", fontsize=7, fontweight='bold')
     ax_real.set_ylabel("Score", fontsize=6)
     ax_real.set_xlabel("Total Training Steps", fontsize=6)
     ax_real.legend(fontsize=5, loc='upper left', framealpha=0.8)
     ax_real.grid(True, linestyle='--', alpha=0.3)
 
-    # --- Formatting ---
     ax_real.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/1000)}K'))
     ax_real.set_xlim(0, max_x)
 
