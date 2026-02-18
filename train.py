@@ -295,7 +295,7 @@ if __name__ == '__main__':
             }
             
             epoch_loss_history.append(step_metrics)
-
+        
         t0 = time.perf_counter()
         plot_current_loss(new_losses=epoch_loss_history, 
                           training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
