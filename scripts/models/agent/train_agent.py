@@ -146,8 +146,8 @@ def train_agent(observation_batch:torch.Tensor,
 
         tokens_batch = tokenizer.forward(latents_sampled_batch=latent_sampled_batch, actions_batch=action_batch)
 
-        t_dream = 0.0
-        t0 = time.perf_counter()
+        # t_dream = 0.0
+        # t0 = time.perf_counter()
         imagined_latent, imagined_action, imagined_reward, imagined_termination, hidden_state = dream(xlstm_dm=xlstm_dm, 
                                                                                                       tokenizer=tokenizer, 
                                                                                                       actor=actor, 
@@ -158,8 +158,8 @@ def train_agent(observation_batch:torch.Tensor,
                                                                                                       batch_size=current_batch_size, 
                                                                                                       env_actions=env_actions, 
                                                                                                       device=device)
-        t_dream = time.perf_counter() - t0
-        print(f'-- DREAN TIME: {t_dream}')
+        # t_dream = time.perf_counter() - t0
+        # print(f'-- DREAN TIME: {t_dream}')
 
         env_state = torch.concat([imagined_latent, hidden_state], dim=-1)
 
