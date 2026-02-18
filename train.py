@@ -138,10 +138,6 @@ if __name__ == '__main__':
 
     SCALER = torch.amp.GradScaler(enabled=True)
 
-    dynamics_model = torch.compile(dynamics_model, mode='reduce-overhead')
-    categorical_encoder = torch.compile(categorical_encoder)
-    categorical_decoder = torch.compile(categorical_decoder)
-
     atari_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=SEQUENCE_LENGTH)
     agent_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=CONTEXT_LENGTH)
 
@@ -194,7 +190,6 @@ if __name__ == '__main__':
                                    num_workers=4, 
                                    pin_memory=True, 
                                    persistent_workers=True)
-        wm_iterator = iter(wm_dataloader)
 
         agent_dataloader = DataLoader(dataset=agent_dataset, 
                                       batch_size=IMAGINATION_BATCH_SIZE, 
@@ -203,18 +198,15 @@ if __name__ == '__main__':
                                       pin_memory=True, 
                                       persistent_workers=True)
         agent_iterator = iter(agent_dataloader)
-
         t_data_init = time.perf_counter() - t0
 
         epoch_loss_history = []
         for step in range(TRAINING_STEPS_PER_EPOCH):
             t0 = time.perf_counter()
-            # observations_batch, actions_batch, rewards_batch, terminations_batch = random_replay_batch(atari_dataset=atari_dataset, 
-            #                                                                                            batch_size=BATCH_SIZE, 
-            #                                                                                            sequence_length=SEQUENCE_LENGTH,
-            #                                                                                            device=DEVICE)
-            # Unpack the batch and move everything to DEVICE in one go
-            observations_batch, actions_batch, rewards_batch, terminations_batch = [x.to(DEVICE, non_blocking=True) for x in next(wm_iterator)]
+            observations_batch, actions_batch, rewards_batch, terminations_batch = random_replay_batch(atari_dataset=atari_dataset, 
+                                                                                                       batch_size=BATCH_SIZE, 
+                                                                                                       sequence_length=SEQUENCE_LENGTH,
+                                                                                                       device=DEVICE)
             t_batch_extract += time.perf_counter() - t0
             
             t0 = time.perf_counter()
