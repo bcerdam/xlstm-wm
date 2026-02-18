@@ -196,7 +196,8 @@ if __name__ == '__main__':
                                       shuffle=True, 
                                       num_workers=4, 
                                       pin_memory=True, 
-                                      persistent_workers=True)
+                                      persistent_workers=True, 
+                                      drop_last=True)
         t_data_init = time.perf_counter() - t0
 
         epoch_loss_history = []
@@ -249,7 +250,12 @@ if __name__ == '__main__':
             t_loss_calc += time.perf_counter() - t0
             
             t0 = time.perf_counter()
-            observation_batch, action_batch, reward_batch, termination_batch = next(iter(agent_dataloader))
+            # observation_batch, action_batch, reward_batch, termination_batch = next(iter(agent_dataloader))
+            observation_batch, action_batch, reward_batch, termination_batch = random_replay_batch(atari_dataset=agent_dataset, 
+                                                                                                       batch_size=IMAGINATION_BATCH_SIZE, 
+                                                                                                       sequence_length=CONTEXT_LENGTH,
+                                                                                                       device=DEVICE)
+            # It should return 1024 observation batches, independent of amount of data
             mean_actor_loss, mean_critic_loss, mean_imagined_reward = train_agent(observation_batch=observation_batch, 
                                                                                   action_batch=action_batch, 
                                                                                   reward_batch=reward_batch, 
