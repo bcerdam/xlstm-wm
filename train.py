@@ -197,7 +197,6 @@ if __name__ == '__main__':
                                       num_workers=4, 
                                       pin_memory=True, 
                                       persistent_workers=True)
-        agent_iterator = iter(agent_dataloader)
         t_data_init = time.perf_counter() - t0
 
         epoch_loss_history = []
@@ -250,7 +249,7 @@ if __name__ == '__main__':
             t_loss_calc += time.perf_counter() - t0
             
             t0 = time.perf_counter()
-            observation_batch, action_batch, reward_batch, termination_batch = next(agent_iterator)
+            observation_batch, action_batch, reward_batch, termination_batch = next(iter(agent_dataloader))
             mean_actor_loss, mean_critic_loss, mean_imagined_reward = train_agent(observation_batch=observation_batch, 
                                                                                   action_batch=action_batch, 
                                                                                   reward_batch=reward_batch, 
