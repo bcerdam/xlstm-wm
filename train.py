@@ -137,6 +137,9 @@ if __name__ == '__main__':
 
     SCALER = torch.amp.GradScaler(enabled=True)
 
+    atari_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=SEQUENCE_LENGTH)
+    agent_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=CONTEXT_LENGTH)
+
     training_steps_finished = 0
     for epoch in range(EPOCHS):
         observations, actions, rewards, terminations, episode_starts = gather_steps(**env_cfg, 
@@ -158,8 +161,17 @@ if __name__ == '__main__':
                             rewards=rewards, 
                             terminations=terminations, 
                             episode_starts=episode_starts)
-        atari_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=SEQUENCE_LENGTH)
-        agent_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=CONTEXT_LENGTH)
+
+        atari_dataset.update(observations=observations, 
+                             actions=actions, 
+                             rewards=rewards, 
+                             terminations=terminations, 
+                             episode_starts=episode_starts)
+        agent_dataset.update(observations=observations, 
+                             actions=actions, 
+                             rewards=rewards, 
+                             terminations=terminations, 
+                             episode_starts=episode_starts)
         agent_dataloader = DataLoader(dataset=agent_dataset, batch_size=IMAGINATION_BATCH_SIZE, shuffle=True)
 
         epoch_loss_history = []
@@ -226,13 +238,17 @@ if __name__ == '__main__':
                                                                                   scaler=SCALER)
             
             training_steps_finished += 1
-
+                
             if training_steps_finished % 10**4 == 0:
                 save_checkpoint(encoder=categorical_encoder,
                                 decoder=categorical_decoder,
                                 tokenizer=tokenizer,
                                 dynamics=dynamics_model,
-                                optimizer=OPTIMIZER,
+                                actor=actor,
+                                critic=critic,
+                                ema_critic=ema_critic, 
+                                wm_optimizer=OPTIMIZER, 
+                                agent_optimizer=AGENT_OPTIMIZER, 
                                 scaler=SCALER,
                                 step=training_steps_finished)
             

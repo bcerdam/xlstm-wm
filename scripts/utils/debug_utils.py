@@ -149,6 +149,26 @@ def save_checkpoint(encoder, decoder, tokenizer, dynamics, optimizer, scaler, st
     }, os.path.join(path, f"checkpoint_step_{step}.pth"))
 
 
+def save_checkpoint(encoder, decoder, tokenizer, dynamics, 
+                    actor, critic, ema_critic,
+                    wm_optimizer, agent_optimizer, 
+                    scaler, step, path="output/checkpoints"):
+    os.makedirs(path, exist_ok=True)
+    torch.save({
+        'step': step,
+        'encoder': encoder.state_dict(),
+        'decoder': decoder.state_dict(),
+        'tokenizer': tokenizer.state_dict(),
+        'dynamics': dynamics.state_dict(),
+        'actor': actor.state_dict(),
+        'critic': critic.state_dict(),
+        'ema_critic': ema_critic.state_dict(),
+        'wm_optimizer': wm_optimizer.state_dict(),
+        'agent_optimizer': agent_optimizer.state_dict(),
+        'scaler': scaler.state_dict()
+    }, os.path.join(path, f"checkpoint_step_{step}.pth"))
+
+
 def visualize_reconstruction(dataset_path:str, 
                              weights_path:str, 
                              device:torch.device, 
