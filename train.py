@@ -5,6 +5,7 @@ import os
 import shutil
 import lpips
 import copy
+import time
 import numpy as np
 from torch.utils.data import DataLoader
 from scripts.data_related.enviroment_steps import gather_steps
@@ -142,6 +143,16 @@ if __name__ == '__main__':
 
     training_steps_finished = 0
     for epoch in range(EPOCHS):
+        t_data_init = 0.0
+        t_batch_extract = 0.0
+        t_ae_fwd = 0.0
+        t_tokenizer = 0.0
+        t_dm_fwd = 0.0
+        t_loss_calc = 0.0
+        t_agent_train = 0.0
+        t_plot = 0.0
+
+        t0 = time.perf_counter()
         observations, actions, rewards, terminations, episode_starts = gather_steps(**env_cfg, 
                                                                                     actor=actor, 
                                                                                     encoder=categorical_encoder, 
@@ -173,14 +184,18 @@ if __name__ == '__main__':
                              terminations=terminations, 
                              episode_starts=episode_starts)
         agent_dataloader = DataLoader(dataset=agent_dataset, batch_size=IMAGINATION_BATCH_SIZE, shuffle=True)
+        t_data_init = time.perf_counter() - t0
 
         epoch_loss_history = []
         for step in range(TRAINING_STEPS_PER_EPOCH):
+            t0 = time.perf_counter()
             observations_batch, actions_batch, rewards_batch, terminations_batch = random_replay_batch(atari_dataset=atari_dataset, 
                                                                                                        batch_size=BATCH_SIZE, 
                                                                                                        sequence_length=SEQUENCE_LENGTH,
                                                                                                        device=DEVICE)
+            t_batch_extract += time.perf_counter() - t0
             
+            t0 = time.perf_counter()
             reconstruction_loss, latents_sampled_batch = autoencoder_fwd_step(categorical_encoder=categorical_encoder, 
                                                                               categorical_decoder=categorical_decoder, 
                                                                               observations_batch=observations_batch, 
@@ -189,9 +204,13 @@ if __name__ == '__main__':
                                                                               latent_dim=LATENT_DIM, 
                                                                               codes_per_latent=CODES_PER_LATENT,
                                                                               lpips_loss_fn=lpips_model)
+            t_ae_fwd += time.perf_counter() - t0
             
+            t0 = time.perf_counter()
             tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch.detach(), actions_batch=actions_batch)
-            
+            t_tokenizer += time.perf_counter() - t0
+
+            t0 = time.perf_counter()
             rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=dynamics_model,
                                                                          latents_batch=latents_sampled_batch, 
                                                                          tokens_batch=tokens_batch, 
@@ -201,7 +220,9 @@ if __name__ == '__main__':
                                                                          sequence_length=SEQUENCE_LENGTH, 
                                                                          latent_dim=LATENT_DIM, 
                                                                          codes_per_latent=CODES_PER_LATENT)
+            t_dm_fwd += time.perf_counter() - t0
             
+            t0 = time.perf_counter()
             mean_total_loss = total_loss_step(reconstruction_loss=reconstruction_loss, 
                                               reward_loss=rewards_loss, 
                                               termination_loss=terminations_loss, 
@@ -212,7 +233,9 @@ if __name__ == '__main__':
                                               dynamics_model=dynamics_model, 
                                               optimizer=OPTIMIZER, 
                                               scaler=SCALER)
+            t_loss_calc += time.perf_counter() - t0
             
+            t0 = time.perf_counter()
             observation_batch, action_batch, reward_batch, termination_batch = next(iter(agent_dataloader))
             mean_actor_loss, mean_critic_loss, mean_imagined_reward = train_agent(observation_batch=observation_batch, 
                                                                                   action_batch=action_batch, 
@@ -236,6 +259,7 @@ if __name__ == '__main__':
                                                                                   nabla=NABLA, 
                                                                                   optimizer=AGENT_OPTIMIZER, 
                                                                                   scaler=SCALER)
+            t_agent_train += time.perf_counter() - t0
             
             training_steps_finished += 1
                 
@@ -266,6 +290,19 @@ if __name__ == '__main__':
             
             epoch_loss_history.append(step_metrics)
 
+        t0 = time.perf_counter()
         plot_current_loss(new_losses=epoch_loss_history, 
                           training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
                           epochs=EPOCHS)
+        t_plot = time.perf_counter() - t0
+
+        print(f"--- Epoch {epoch} Timing Stats ---")
+        print(f"(1) Data Init:       {t_data_init:.4f}s")
+        print(f"(2) Batch Extract:   {t_batch_extract:.4f}s")
+        print(f"(3) AE Forward:      {t_ae_fwd:.4f}s")
+        print(f"(4) Tokenizer:       {t_tokenizer:.4f}s")
+        print(f"(5) DM Forward:      {t_dm_fwd:.4f}s")
+        print(f"(6) Total Loss:      {t_loss_calc:.4f}s")
+        print(f"(7) Agent Train:     {t_agent_train:.4f}s")
+        print(f"(8) Plot Loss:       {t_plot:.4f}s")
+        print(f"----------------------------------")
