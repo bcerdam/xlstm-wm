@@ -149,6 +149,7 @@ if __name__ == '__main__':
         t_tokenizer = 0.0
         t_dm_fwd = 0.0
         t_loss_calc = 0.0
+        t_agent_replay = 0.0
         t_agent_train = 0.0
         t_plot = 0.0
 
@@ -239,7 +240,9 @@ if __name__ == '__main__':
                                                                                                        batch_size=IMAGINATION_BATCH_SIZE, 
                                                                                                        sequence_length=CONTEXT_LENGTH,
                                                                                                        device=DEVICE)
-            
+            t_agent_replay += time.perf_counter() - t0
+
+            t0 = time.perf_counter()
             mean_actor_loss, mean_critic_loss, mean_imagined_reward = train_agent(observation_batch=observations_batch, 
                                                                                   action_batch=actions_batch, 
                                                                                   reward_batch=rewards_batch, 
@@ -306,6 +309,7 @@ if __name__ == '__main__':
         print(f"(4) Tokenizer:       {t_tokenizer:.4f}s")
         print(f"(5) DM Forward:      {t_dm_fwd:.4f}s")
         print(f"(6) Total Loss:      {t_loss_calc:.4f}s")
-        print(f"(7) Agent Train:     {t_agent_train:.4f}s")
-        print(f"(8) Plot Loss:       {t_plot:.4f}s")
+        print(f"(7) Agent Replay:    {t_agent_replay:.4f}s")
+        print(f"(8) Agent Train:     {t_agent_train:.4f}s")
+        print(f"(9) Plot Loss:       {t_plot:.4f}s")
         print(f"----------------------------------")
