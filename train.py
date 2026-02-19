@@ -82,6 +82,9 @@ if __name__ == '__main__':
     EMA_SIGMA = train_agent_cfg['ema_sigma']
     AGENT_LEARNING_RATE = train_agent_cfg['learning_rate']
 
+    WM_DATALOADER_NUM_WORKERS = train_wm_cfg['dataloader_num_workers']
+    AGENT_DATALOADER_NUM_WORKERS = train_agent_cfg['dataloader_num_workers']
+
     categorical_encoder = CategoricalEncoder(latent_dim=LATENT_DIM, 
                                              codes_per_latent=CODES_PER_LATENT).to(DEVICE)
     categorical_decoder = CategoricalDecoder(latent_dim=LATENT_DIM, 

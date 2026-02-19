@@ -108,4 +108,10 @@ def gather_steps(env_name: str,
                 context_tokens = None
                 current_hidden_state = torch.zeros(1, 1, embedding_dim, device=device)
 
+    all_observations = np.array(all_observations)
+    all_actions = np.array(all_actions)
+    all_rewards = np.array(all_rewards)
+    all_terminations = np.array(all_terminations)
+    all_episode_starts = np.array(all_episode_starts)
+
     return all_observations, all_actions, all_rewards, all_terminations, all_episode_starts
