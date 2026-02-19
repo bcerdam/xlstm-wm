@@ -103,16 +103,13 @@ def recursive_lambda_returns(env_state:torch.Tensor,
     return batch_lambda_returns.squeeze(-1), state_values.squeeze(-1)
 
 
-def train_agent(observation_batch:torch.Tensor, 
-                action_batch:torch.Tensor, 
-                reward_batch:torch.Tensor, 
-                termination_batch:torch.Tensor, 
+def train_agent(latents_sampled_batch:torch.Tensor, 
+                actions_batch:torch.Tensor, 
                 context_length:int, 
                 imagination_horizon:int, 
                 env_actions:int, 
                 latent_dim:int, 
                 codes_per_latent:int,  
-                encoder:CategoricalEncoder, 
                 tokenizer:Tokenizer, 
                 xlstm_dm:XLSTM_DM, 
                 actor:Actor, 
@@ -125,26 +122,13 @@ def train_agent(observation_batch:torch.Tensor,
                 nabla:float, 
                 optimizer:torch.optim.Adam, 
                 scaler:torch.amp.GradScaler) -> Tuple:
-    
-    observation_batch = observation_batch.to(device)
-    action_batch = action_batch.to(device)
-    reward_batch = reward_batch.to(device)
-    termination_batch = termination_batch.to(device)
 
-    current_batch_size = observation_batch.shape[0]
-
+    current_batch_size = latents_sampled_batch.shape[0] # (32, 64, 32, 32) or (32, 64, 32*32) -> (256, 8, 32*32)
     with torch.no_grad():
-        latent_batch = encoder(observations_batch=observation_batch, 
-                               batch_size=current_batch_size, 
-                               sequence_length=context_length, 
-                               latent_dim=latent_dim, 
-                               codes_per_latent=codes_per_latent)
-        
-        latent_sampled_batch = sample(latents_batch=latent_batch, 
-                                      batch_size=current_batch_size, 
-                                      sequence_length=context_length)
-
-        tokens_batch = tokenizer.forward(latents_sampled_batch=latent_sampled_batch, actions_batch=action_batch)
+        latents_sampled_batch = latents_sampled_batch.view(-1, context_length, latent_dim*codes_per_latent)
+        actions_batch = actions_batch.view(-1, context_length, env_actions)
+        print(latents_sampled_batch.shape, actions_batch.shape)
+        tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions_batch)
 
         # t_dream = 0.0
         # t0 = time.perf_counter()
