@@ -133,20 +133,6 @@ if __name__ == '__main__':
     wm_dataset = AtariDataset(sequence_length=SEQUENCE_LENGTH)
     agent_dataset = AtariDataset(sequence_length=CONTEXT_LENGTH)
 
-    wm_dataloader = DataLoader(dataset=wm_dataset, 
-                               batch_size=BATCH_SIZE, 
-                               shuffle=True, 
-                               sampler=RandomSampler(replacement=True, num_samples=BATCH_SIZE), 
-                               num_workers=4, 
-                               drop_last=True)
-    agent_dataloader = DataLoader(dataset=agent_dataset, 
-                                  batch_size=IMAGINATION_BATCH_SIZE, 
-                                  shuffle=True, 
-                                  sampler=RandomSampler(replacement=True, num_samples=IMAGINATION_BATCH_SIZE), 
-                                  num_workers=4, 
-                                  drop_last=True)
-    
-
     training_steps_finished = 0
     for epoch in range(EPOCHS):
         t_data_init = 0.0
@@ -183,12 +169,39 @@ if __name__ == '__main__':
                              rewards=rewards, 
                              terminations=terminations, 
                              episode_starts=episode_starts)
+        
+        wm_dataloader = DataLoader(dataset=wm_dataset, 
+                                   batch_size=BATCH_SIZE, 
+                                   sampler=RandomSampler(wm_dataset, 
+                                                         replacement=True, 
+                                                         num_samples=BATCH_SIZE * TRAINING_STEPS_PER_EPOCH), 
+                                   num_workers=4, 
+                                   pin_memory=True,
+                                   persistent_workers=True, 
+                                   drop_last=True)
+        
+        agent_dataloader = DataLoader(dataset=agent_dataset, 
+                                      batch_size=IMAGINATION_BATCH_SIZE, 
+                                      sampler=RandomSampler(agent_dataset, 
+                                                            replacement=True, 
+                                                            num_samples=IMAGINATION_BATCH_SIZE * TRAINING_STEPS_PER_EPOCH), 
+                                      num_workers=4, 
+                                      pin_memory=True,
+                                      persistent_workers=True,
+                                      drop_last=True)
+        
+        wm_iterator = iter(wm_dataloader)
+        agent_iterator = iter(agent_dataloader)
+
         t_data_init = time.perf_counter() - t0
 
         epoch_loss_history = []
         for step in range(TRAINING_STEPS_PER_EPOCH):
             t0 = time.perf_counter()
-            observations_batch, actions_batch, rewards_batch, terminations_batch = next(iter(wm_dataloader))
+            wm_batch = next(wm_iterator) 
+            observations_batch, actions_batch, rewards_batch, terminations_batch = [
+                x.to(DEVICE, non_blocking=True) for x in wm_batch
+            ]
             t_batch_extract += time.perf_counter() - t0
             
             t0 = time.perf_counter()
@@ -232,7 +245,10 @@ if __name__ == '__main__':
             t_loss_calc += time.perf_counter() - t0
             
             t0 = time.perf_counter()
-            observations_batch, actions_batch, rewards_batch, terminations_batch = next(iter(agent_dataloader))
+            agent_batch = next(agent_iterator)
+            observations_batch, actions_batch, rewards_batch, terminations_batch = [
+                x.to(DEVICE, non_blocking=True) for x in agent_batch
+            ]
             t_agent_replay += time.perf_counter() - t0
 
             t0 = time.perf_counter()
