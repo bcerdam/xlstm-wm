@@ -54,6 +54,7 @@ if __name__ == '__main__':
     BATCH_SIZE = train_wm_cfg['batch_size']
     SEQUENCE_LENGTH = train_wm_cfg['sequence_length']
     WORLD_MODEL_LEARNING_RATE = train_wm_cfg['world_model_learning_rate']
+    DATASET_NUM_WORKERS = train_wm_cfg['dataloader_num_workers']
 
     # autoencoder
     LATENT_DIM = train_wm_cfg['latent_dim']
@@ -73,7 +74,6 @@ if __name__ == '__main__':
     ACT_FN = train_wm_cfg['act_fn']
 
     # actor critic agent
-    IMAGINATION_BATCH_SIZE = train_agent_cfg['imagination_batch_size']
     CONTEXT_LENGTH = train_agent_cfg['context_length']
     IMAGINATION_HORIZON = train_agent_cfg['imagination_horizon']
     GAMMA = train_agent_cfg['gamma']
@@ -133,8 +133,14 @@ if __name__ == '__main__':
 
     SCALER = torch.amp.GradScaler(enabled=True)
 
-    wm_dataset = AtariDataset(sequence_length=SEQUENCE_LENGTH)
-    agent_dataset = AtariDataset(sequence_length=CONTEXT_LENGTH)
+    dataset = AtariDataset(sequence_length=SEQUENCE_LENGTH)
+    dataloader = DataLoader(dataset=dataset, 
+                            batch_size=BATCH_SIZE, 
+                            shuffle=True, 
+                            sampler=RandomSampler(replacement=True, num_samples=BATCH_SIZE), 
+                            num_workers=DATASET_NUM_WORKERS, 
+                            drop_last=True)
+
 
     training_steps_finished = 0
     for epoch in range(EPOCHS):
@@ -144,7 +150,6 @@ if __name__ == '__main__':
         t_tokenizer = 0.0
         t_dm_fwd = 0.0
         t_loss_calc = 0.0
-        t_agent_replay = 0.0
         t_agent_train = 0.0
         t_plot = 0.0
 
@@ -162,48 +167,17 @@ if __name__ == '__main__':
         num_episodes = np.sum(episode_starts)
         epoch_mean_score = total_reward / num_episodes if num_episodes > 0 else total_reward
 
-        wm_dataset.update(observations=observations, 
-                          actions=actions, 
-                          rewards=rewards, 
-                          terminations=terminations, 
-                          episode_starts=episode_starts)
-        agent_dataset.update(observations=observations, 
-                             actions=actions, 
-                             rewards=rewards, 
-                             terminations=terminations, 
-                             episode_starts=episode_starts)
-        
-        wm_dataloader = DataLoader(dataset=wm_dataset, 
-                                   batch_size=BATCH_SIZE, 
-                                   sampler=RandomSampler(wm_dataset, 
-                                                         replacement=True, 
-                                                         num_samples=BATCH_SIZE * TRAINING_STEPS_PER_EPOCH), 
-                                   num_workers=WM_DATALOADER_NUM_WORKERS, 
-                                   pin_memory=True,
-                                   persistent_workers=True, 
-                                   drop_last=True)
-        
-        agent_dataloader = DataLoader(dataset=agent_dataset, 
-                                      batch_size=IMAGINATION_BATCH_SIZE, 
-                                      sampler=RandomSampler(agent_dataset, 
-                                                            replacement=True, 
-                                                            num_samples=IMAGINATION_BATCH_SIZE * TRAINING_STEPS_PER_EPOCH), 
-                                      num_workers=AGENT_DATALOADER_NUM_WORKERS, 
-                                      pin_memory=True,
-                                      persistent_workers=True,
-                                      drop_last=True)
-        
-        wm_iterator = iter(wm_dataloader)
-        agent_iterator = iter(agent_dataloader)
+        dataset.update(observations=observations, 
+                       actions=actions, 
+                       rewards=rewards, 
+                       terminations=terminations, 
+                       episode_starts=episode_starts)
         t_data_init = time.perf_counter() - t0
 
         epoch_loss_history = []
         for step in range(TRAINING_STEPS_PER_EPOCH):
             t0 = time.perf_counter()
-            wm_batch = next(wm_iterator) 
-            observations_batch, actions_batch, rewards_batch, terminations_batch = [
-                x.to(DEVICE, non_blocking=True) for x in wm_batch
-            ]
+            observations_batch, actions_batch, rewards_batch, terminations_batch = next(iter(dataloader))
             t_batch_extract += time.perf_counter() - t0
             
             t0 = time.perf_counter()
@@ -247,17 +221,8 @@ if __name__ == '__main__':
             t_loss_calc += time.perf_counter() - t0
             
             t0 = time.perf_counter()
-            agent_batch = next(agent_iterator)
-            observations_batch, actions_batch, rewards_batch, terminations_batch = [
-                x.to(DEVICE, non_blocking=True) for x in agent_batch
-            ]
-            t_agent_replay += time.perf_counter() - t0
-
-            t0 = time.perf_counter()
-            mean_actor_loss, mean_critic_loss, mean_imagined_reward = train_agent(observation_batch=observations_batch, 
-                                                                                  action_batch=actions_batch, 
-                                                                                  reward_batch=rewards_batch, 
-                                                                                  termination_batch=terminations_batch, 
+            mean_actor_loss, mean_critic_loss, mean_imagined_reward = train_agent(latents_sampled_batch=latents_sampled_batch, 
+                                                                                  actions_batch=actions_batch, 
                                                                                   context_length=CONTEXT_LENGTH, 
                                                                                   imagination_horizon=IMAGINATION_HORIZON, 
                                                                                   env_actions=ENV_ACTIONS, 
@@ -320,7 +285,6 @@ if __name__ == '__main__':
         print(f"(4) Tokenizer:       {t_tokenizer:.4f}s")
         print(f"(5) DM Forward:      {t_dm_fwd:.4f}s")
         print(f"(6) Total Loss:      {t_loss_calc:.4f}s")
-        print(f"(7) Agent Replay:    {t_agent_replay:.4f}s")
-        print(f"(8) Agent Train:     {t_agent_train:.4f}s")
-        print(f"(9) Plot Loss:       {t_plot:.4f}s")
+        print(f"(7) Agent Train:     {t_agent_train:.4f}s")
+        print(f"(8) Plot Loss:       {t_plot:.4f}s")
         print(f"----------------------------------")
