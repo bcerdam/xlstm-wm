@@ -134,13 +134,6 @@ if __name__ == '__main__':
     SCALER = torch.amp.GradScaler(enabled=True)
 
     dataset = AtariDataset(sequence_length=SEQUENCE_LENGTH)
-    dataloader = DataLoader(dataset=dataset, 
-                            batch_size=BATCH_SIZE, 
-                            shuffle=True, 
-                            sampler=RandomSampler(replacement=True, num_samples=BATCH_SIZE), 
-                            num_workers=DATASET_NUM_WORKERS, 
-                            drop_last=True)
-
 
     training_steps_finished = 0
     for epoch in range(EPOCHS):
@@ -172,12 +165,20 @@ if __name__ == '__main__':
                        rewards=rewards, 
                        terminations=terminations, 
                        episode_starts=episode_starts)
+        dataloader = DataLoader(dataset=dataset, 
+                        batch_size=BATCH_SIZE, 
+                        sampler=RandomSampler(data_source=dataset, replacement=True, num_samples=BATCH_SIZE), 
+                        num_workers=WM_DATALOADER_NUM_WORKERS, 
+                        pin_memory=True,
+                        persistent_workers=True, 
+                        drop_last=True)
         t_data_init = time.perf_counter() - t0
 
         epoch_loss_history = []
         for step in range(TRAINING_STEPS_PER_EPOCH):
             t0 = time.perf_counter()
-            observations_batch, actions_batch, rewards_batch, terminations_batch = next(iter(dataloader))
+            # observations_batch, actions_batch, rewards_batch, terminations_batch = next(iter(dataloader))
+            observations_batch, actions_batch, rewards_batch, terminations_batch = [x.to(DEVICE) for x in next(iter(dataloader))]
             t_batch_extract += time.perf_counter() - t0
             
             t0 = time.perf_counter()
@@ -228,7 +229,6 @@ if __name__ == '__main__':
                                                                                   env_actions=ENV_ACTIONS, 
                                                                                   latent_dim=LATENT_DIM, 
                                                                                   codes_per_latent=CODES_PER_LATENT, 
-                                                                                  encoder=categorical_encoder, 
                                                                                   tokenizer=tokenizer, 
                                                                                   xlstm_dm=xlstm_dm, 
                                                                                   actor=actor, 
