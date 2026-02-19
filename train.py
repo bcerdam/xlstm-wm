@@ -133,6 +133,12 @@ if __name__ == '__main__':
 
     SCALER = torch.amp.GradScaler(enabled=True)
 
+    categorical_encoder = torch.compile(categorical_encoder)
+    categorical_decoder = torch.compile(categorical_decoder)
+    actor = torch.compile(actor)
+    critic = torch.compile(critic)
+    ema_critic = torch.compile(ema_critic)
+
     dataset = AtariDataset(sequence_length=SEQUENCE_LENGTH)
 
     training_steps_finished = 0
@@ -167,7 +173,7 @@ if __name__ == '__main__':
                        episode_starts=episode_starts)
         dataloader = DataLoader(dataset=dataset, 
                         batch_size=BATCH_SIZE, 
-                        sampler=RandomSampler(data_source=dataset, replacement=True, num_samples=BATCH_SIZE), 
+                        sampler=RandomSampler(data_source=dataset, replacement=True, num_samples=BATCH_SIZE*TRAINING_STEPS_PER_EPOCH), 
                         num_workers=WM_DATALOADER_NUM_WORKERS, 
                         pin_memory=True,
                         persistent_workers=True, 
@@ -177,7 +183,6 @@ if __name__ == '__main__':
         epoch_loss_history = []
         for step in range(TRAINING_STEPS_PER_EPOCH):
             t0 = time.perf_counter()
-            # observations_batch, actions_batch, rewards_batch, terminations_batch = next(iter(dataloader))
             observations_batch, actions_batch, rewards_batch, terminations_batch = [x.to(DEVICE) for x in next(iter(dataloader))]
             t_batch_extract += time.perf_counter() - t0
             
