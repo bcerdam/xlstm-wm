@@ -82,6 +82,9 @@ if __name__ == '__main__':
     EMA_SIGMA = train_agent_cfg['ema_sigma']
     AGENT_LEARNING_RATE = train_agent_cfg['learning_rate']
 
+    WM_DATALOADER_NUM_WORKERS = train_wm_cfg['dataloader_num_workers']
+    AGENT_DATALOADER_NUM_WORKERS = train_agent_cfg['dataloader_num_workers']
+
     categorical_encoder = CategoricalEncoder(latent_dim=LATENT_DIM, 
                                              codes_per_latent=CODES_PER_LATENT).to(DEVICE)
     categorical_decoder = CategoricalDecoder(latent_dim=LATENT_DIM, 
@@ -175,7 +178,7 @@ if __name__ == '__main__':
                                    sampler=RandomSampler(wm_dataset, 
                                                          replacement=True, 
                                                          num_samples=BATCH_SIZE * TRAINING_STEPS_PER_EPOCH), 
-                                   num_workers=4, 
+                                   num_workers=WM_DATALOADER_NUM_WORKERS, 
                                    pin_memory=True,
                                    persistent_workers=True, 
                                    drop_last=True)
@@ -185,14 +188,13 @@ if __name__ == '__main__':
                                       sampler=RandomSampler(agent_dataset, 
                                                             replacement=True, 
                                                             num_samples=IMAGINATION_BATCH_SIZE * TRAINING_STEPS_PER_EPOCH), 
-                                      num_workers=4, 
+                                      num_workers=AGENT_DATALOADER_NUM_WORKERS, 
                                       pin_memory=True,
                                       persistent_workers=True,
                                       drop_last=True)
         
         wm_iterator = iter(wm_dataloader)
         agent_iterator = iter(agent_dataloader)
-
         t_data_init = time.perf_counter() - t0
 
         epoch_loss_history = []

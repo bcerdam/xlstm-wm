@@ -17,3 +17,4 @@ train_wm:
   bias_init: 'power_law'
   proj_factor: 2.0
   act_fn: 'gelu'  
+  dataloader_num_workers: 4
