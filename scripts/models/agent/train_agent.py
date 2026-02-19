@@ -33,7 +33,7 @@ def dream(xlstm_dm:XLSTM_DM,
 
     for step in range(imagination_horizon):
         latent, reward, termination, hidden_state = xlstm_dm.forward(tokens_batch=tokens)
-        next_latent = latent[:, -1:, :].view(batch_size, 1, latent_dim, codes_per_latent)
+        next_latent = latent[:, -1:, :].view(batch_size, 1, latent_dim, codes_per_latent) #(256, 1, 1024)
         next_latent_sample = sample(latents_batch=next_latent, batch_size=batch_size, sequence_length=1)
 
         imagined_latents.append(next_latent_sample)
@@ -127,7 +127,6 @@ def train_agent(latents_sampled_batch:torch.Tensor,
     with torch.no_grad():
         latents_sampled_batch = latents_sampled_batch.view(-1, context_length, latent_dim*codes_per_latent)
         actions_batch = actions_batch.view(-1, context_length, env_actions)
-        print(latents_sampled_batch.shape, actions_batch.shape)
         tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions_batch)
 
         # t_dream = 0.0
@@ -139,7 +138,7 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                                                                                                       imagination_horizon=imagination_horizon, 
                                                                                                       latent_dim=latent_dim, 
                                                                                                       codes_per_latent=codes_per_latent, 
-                                                                                                      batch_size=current_batch_size, 
+                                                                                                      batch_size=tokens_batch.shape[0], 
                                                                                                       env_actions=env_actions, 
                                                                                                       device=device)
         # t_dream = time.perf_counter() - t0

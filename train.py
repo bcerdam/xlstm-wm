@@ -178,12 +178,14 @@ if __name__ == '__main__':
                         pin_memory=True,
                         persistent_workers=True, 
                         drop_last=True)
+        data_iterator = iter(dataloader)
         t_data_init = time.perf_counter() - t0
 
         epoch_loss_history = []
         for step in range(TRAINING_STEPS_PER_EPOCH):
             t0 = time.perf_counter()
-            observations_batch, actions_batch, rewards_batch, terminations_batch = [x.to(DEVICE) for x in next(iter(dataloader))]
+            batch = next(data_iterator)
+            observations_batch, actions_batch, rewards_batch, terminations_batch = [x.to(DEVICE) for x in batch]
             t_batch_extract += time.perf_counter() - t0
             
             t0 = time.perf_counter()
