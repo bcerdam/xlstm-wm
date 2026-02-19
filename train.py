@@ -7,7 +7,7 @@ import lpips
 import copy
 import time
 import numpy as np
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 from scripts.data_related.enviroment_steps import gather_steps
 from scripts.data_related.replay_buffer import update_replay_buffer
 from scripts.data_related.atari_dataset import AtariDataset
@@ -38,22 +38,14 @@ if __name__ == '__main__':
 
     with open(args.train_wm_cfg, 'r') as file_train_wm, open(args.env_cfg, 'r') as file_env, open(args.train_agent_cfg, 'r') as file_train_agent:
         train_wm_cfg = yaml.safe_load(file_train_wm)['train_wm']
-
         train_agent_cfg = yaml.safe_load(file_train_agent)['train_agent']
-
-        env_file_content = yaml.safe_load(file_env)
-        env_cfg = env_file_content['env']
-        dataset_cfg = env_file_content['dataset']
-
-    if os.path.exists('data'):
-            shutil.rmtree('data')
+        env_cfg = yaml.safe_load(file_env)['env']
 
     if os.path.exists('output/logs'):
         shutil.rmtree('output/logs')
 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    REPLAY_BUFFER_PATH = dataset_cfg['replay_buffer_path']
     ENV_NAME = env_cfg['env_name']
     ENV_ACTIONS = env_n_actions(ENV_NAME)
 
@@ -99,7 +91,7 @@ if __name__ == '__main__':
                           env_actions=ENV_ACTIONS, 
                           embedding_dim=EMBEDDING_DIM, 
                           sequence_length=SEQUENCE_LENGTH).to(DEVICE)
-    dynamics_model = XLSTM_DM(sequence_length=SEQUENCE_LENGTH, 
+    xlstm_dm = XLSTM_DM(sequence_length=SEQUENCE_LENGTH, 
                               num_blocks=NUM_BLOCKS, 
                               embedding_dim=EMBEDDING_DIM, 
                               slstm_at=SLSTM_AT, 
@@ -129,7 +121,7 @@ if __name__ == '__main__':
     OPTIMIZER = torch.optim.Adam(list(categorical_encoder.parameters()) + 
                                  list(categorical_decoder.parameters()) +
                                  list(tokenizer.parameters()) + 
-                                 list(dynamics_model.parameters()),
+                                 list(xlstm_dm.parameters()),
                                  lr=WORLD_MODEL_LEARNING_RATE)
     
     AGENT_OPTIMIZER = torch.optim.Adam(list(critic.parameters()) +
@@ -138,8 +130,22 @@ if __name__ == '__main__':
 
     SCALER = torch.amp.GradScaler(enabled=True)
 
-    atari_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=SEQUENCE_LENGTH)
-    agent_dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=CONTEXT_LENGTH)
+    wm_dataset = AtariDataset(sequence_length=SEQUENCE_LENGTH)
+    agent_dataset = AtariDataset(sequence_length=CONTEXT_LENGTH)
+
+    wm_dataloader = DataLoader(dataset=wm_dataset, 
+                               batch_size=BATCH_SIZE, 
+                               shuffle=True, 
+                               sampler=RandomSampler(replacement=True, num_samples=BATCH_SIZE), 
+                               num_workers=4, 
+                               drop_last=True)
+    agent_dataloader = DataLoader(dataset=agent_dataset, 
+                                  batch_size=IMAGINATION_BATCH_SIZE, 
+                                  shuffle=True, 
+                                  sampler=RandomSampler(replacement=True, num_samples=IMAGINATION_BATCH_SIZE), 
+                                  num_workers=4, 
+                                  drop_last=True)
+    
 
     training_steps_finished = 0
     for epoch in range(EPOCHS):
@@ -158,7 +164,7 @@ if __name__ == '__main__':
                                                                                     actor=actor, 
                                                                                     encoder=categorical_encoder, 
                                                                                     tokenizer=tokenizer, 
-                                                                                    xlstm_dm=dynamics_model, 
+                                                                                    xlstm_dm=xlstm_dm, 
                                                                                     latent_dim=LATENT_DIM, 
                                                                                     codes_per_latent=CODES_PER_LATENT, 
                                                                                     device=DEVICE, 
@@ -167,18 +173,11 @@ if __name__ == '__main__':
         num_episodes = np.sum(episode_starts)
         epoch_mean_score = total_reward / num_episodes if num_episodes > 0 else total_reward
 
-        update_replay_buffer(replay_buffer_path=REPLAY_BUFFER_PATH, 
-                            observations=observations, 
-                            actions=actions,
-                            rewards=rewards, 
-                            terminations=terminations, 
-                            episode_starts=episode_starts)
-
-        atari_dataset.update(observations=observations, 
-                             actions=actions, 
-                             rewards=rewards, 
-                             terminations=terminations, 
-                             episode_starts=episode_starts)
+        wm_dataset.update(observations=observations, 
+                          actions=actions, 
+                          rewards=rewards, 
+                          terminations=terminations, 
+                          episode_starts=episode_starts)
         agent_dataset.update(observations=observations, 
                              actions=actions, 
                              rewards=rewards, 
@@ -189,10 +188,7 @@ if __name__ == '__main__':
         epoch_loss_history = []
         for step in range(TRAINING_STEPS_PER_EPOCH):
             t0 = time.perf_counter()
-            observations_batch, actions_batch, rewards_batch, terminations_batch = random_replay_batch(atari_dataset=atari_dataset, 
-                                                                                                       batch_size=BATCH_SIZE, 
-                                                                                                       sequence_length=SEQUENCE_LENGTH,
-                                                                                                       device=DEVICE)
+            observations_batch, actions_batch, rewards_batch, terminations_batch = next(iter(wm_dataloader))
             t_batch_extract += time.perf_counter() - t0
             
             t0 = time.perf_counter()
@@ -211,7 +207,7 @@ if __name__ == '__main__':
             t_tokenizer += time.perf_counter() - t0
 
             t0 = time.perf_counter()
-            rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=dynamics_model,
+            rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=xlstm_dm,
                                                                          latents_batch=latents_sampled_batch, 
                                                                          tokens_batch=tokens_batch, 
                                                                          rewards_batch=rewards_batch, 
@@ -230,16 +226,13 @@ if __name__ == '__main__':
                                               categorical_encoder=categorical_encoder, 
                                               categorical_decoder=categorical_decoder, 
                                               tokenizer=tokenizer, 
-                                              dynamics_model=dynamics_model, 
+                                              dynamics_model=xlstm_dm, 
                                               optimizer=OPTIMIZER, 
                                               scaler=SCALER)
             t_loss_calc += time.perf_counter() - t0
             
             t0 = time.perf_counter()
-            observations_batch, actions_batch, rewards_batch, terminations_batch = random_replay_batch(atari_dataset=agent_dataset, 
-                                                                                                       batch_size=IMAGINATION_BATCH_SIZE, 
-                                                                                                       sequence_length=CONTEXT_LENGTH,
-                                                                                                       device=DEVICE)
+            observations_batch, actions_batch, rewards_batch, terminations_batch = next(iter(agent_dataloader))
             t_agent_replay += time.perf_counter() - t0
 
             t0 = time.perf_counter()
@@ -254,7 +247,7 @@ if __name__ == '__main__':
                                                                                   codes_per_latent=CODES_PER_LATENT, 
                                                                                   encoder=categorical_encoder, 
                                                                                   tokenizer=tokenizer, 
-                                                                                  xlstm_dm=dynamics_model, 
+                                                                                  xlstm_dm=xlstm_dm, 
                                                                                   actor=actor, 
                                                                                   critic=critic,
                                                                                   ema_critic=ema_critic,
@@ -273,7 +266,7 @@ if __name__ == '__main__':
                 save_checkpoint(encoder=categorical_encoder,
                                 decoder=categorical_decoder,
                                 tokenizer=tokenizer,
-                                dynamics=dynamics_model,
+                                dynamics=xlstm_dm,
                                 actor=actor,
                                 critic=critic,
                                 ema_critic=ema_critic, 

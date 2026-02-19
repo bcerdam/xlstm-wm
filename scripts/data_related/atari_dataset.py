@@ -6,9 +6,9 @@ from torch.utils.data import Dataset
 
 
 class AtariDataset(Dataset):
-    def __init__(self, replay_buffer_path:str, sequence_length:int) -> None:
+    def __init__(self, sequence_length:int) -> None:
 
-        self.sequence_length= sequence_length
+        self.sequence_length = sequence_length
         self.valid_indices = np.array([], dtype=np.int64)
 
         self.observations = None
@@ -17,16 +17,6 @@ class AtariDataset(Dataset):
         self.terminations = None
         self.episode_starts = None
 
-        if replay_buffer_path and os.path.exists(replay_buffer_path):
-             with h5py.File(replay_buffer_path, 'r') as f:
-                self.update(
-                    f['observations'][:], 
-                    f['actions'][:], 
-                    f['rewards'][:], 
-                    f['terminations'][:], 
-                    f['episode_starts'][:]
-                )
-
 
     def update(self, observations: np.ndarray, 
                      actions: np.ndarray, 
@@ -34,24 +24,18 @@ class AtariDataset(Dataset):
                      terminations: np.ndarray, 
                      episode_starts: np.ndarray) -> None:
         
-        obs = np.array(observations)
-        acts = np.array(actions)
-        rews = np.array(rewards)
-        terms = np.array(terminations)
-        starts = np.array(episode_starts)
-
         if self.observations is None:
-            self.observations = obs
-            self.actions = acts
-            self.rewards = rews
-            self.terminations = terms
-            self.episode_starts = starts
+            self.observations = observations
+            self.actions = actions
+            self.rewards = rewards
+            self.terminations = terminations
+            self.episode_starts = episode_starts
         else:
-            self.observations = np.concatenate([self.observations, obs], axis=0)
-            self.actions = np.concatenate([self.actions, acts], axis=0)
-            self.rewards = np.concatenate([self.rewards, rews], axis=0)
-            self.terminations = np.concatenate([self.terminations, terms], axis=0)
-            self.episode_starts = np.concatenate([self.episode_starts, starts], axis=0)
+            self.observations = np.concatenate([self.observations, observations], axis=0)
+            self.actions = np.concatenate([self.actions, actions], axis=0)
+            self.rewards = np.concatenate([self.rewards, rewards], axis=0)
+            self.terminations = np.concatenate([self.terminations, terminations], axis=0)
+            self.episode_starts = np.concatenate([self.episode_starts, episode_starts], axis=0)
 
         total_samples = self.observations.shape[0]
         invalid_mask = np.zeros(total_samples, dtype=bool)
