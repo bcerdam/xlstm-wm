@@ -47,6 +47,7 @@ if __name__ == '__main__':
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     ENV_NAME = env_cfg['env_name']
+    ENV_STEPS_PER_EPOCH = env_cfg['env_steps_per_epoch']
     ENV_ACTIONS = env_n_actions(ENV_NAME)
 
     EPOCHS = train_wm_cfg['epochs']
@@ -163,8 +164,9 @@ if __name__ == '__main__':
                                                                                     device=DEVICE, 
                                                                                     context_length=CONTEXT_LENGTH)
         total_reward = np.sum(rewards)
-        num_episodes = np.sum(episode_starts)
-        epoch_mean_score = total_reward / num_episodes if num_episodes > 0 else total_reward
+        # num_episodes = np.sum(episode_starts)
+        # epoch_mean_score = total_reward / num_episodes if num_episodes > 0 else total_reward
+        epoch_mean_score = total_reward / ENV_STEPS_PER_EPOCH
 
         dataset.update(observations=observations, 
                        actions=actions, 
