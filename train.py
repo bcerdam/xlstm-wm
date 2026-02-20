@@ -230,27 +230,27 @@ if __name__ == '__main__':
                                               scaler=SCALER)
             t_loss_calc += time.perf_counter() - t0
             
-            t0 = time.perf_counter()
-            mean_actor_loss, mean_critic_loss, mean_imagined_reward = train_agent(latents_sampled_batch=latents_sampled_batch, 
-                                                                                  actions_batch=actions_batch, 
-                                                                                  context_length=CONTEXT_LENGTH, 
-                                                                                  imagination_horizon=IMAGINATION_HORIZON, 
-                                                                                  env_actions=ENV_ACTIONS, 
-                                                                                  latent_dim=LATENT_DIM, 
-                                                                                  codes_per_latent=CODES_PER_LATENT, 
-                                                                                  tokenizer=tokenizer, 
-                                                                                  xlstm_dm=xlstm_dm, 
-                                                                                  actor=actor, 
-                                                                                  critic=critic,
-                                                                                  ema_critic=ema_critic,
-                                                                                  device=DEVICE, 
-                                                                                  gamma=GAMMA, 
-                                                                                  lambda_p=LAMBDA, 
-                                                                                  ema_sigma=EMA_SIGMA, 
-                                                                                  nabla=NABLA, 
-                                                                                  optimizer=AGENT_OPTIMIZER, 
-                                                                                  scaler=SCALER)
-            t_agent_train += time.perf_counter() - t0
+            # t0 = time.perf_counter()
+            # mean_actor_loss, mean_critic_loss, mean_imagined_reward = train_agent(latents_sampled_batch=latents_sampled_batch, 
+            #                                                                       actions_batch=actions_batch, 
+            #                                                                       context_length=CONTEXT_LENGTH, 
+            #                                                                       imagination_horizon=IMAGINATION_HORIZON, 
+            #                                                                       env_actions=ENV_ACTIONS, 
+            #                                                                       latent_dim=LATENT_DIM, 
+            #                                                                       codes_per_latent=CODES_PER_LATENT, 
+            #                                                                       tokenizer=tokenizer, 
+            #                                                                       xlstm_dm=xlstm_dm, 
+            #                                                                       actor=actor, 
+            #                                                                       critic=critic,
+            #                                                                       ema_critic=ema_critic,
+            #                                                                       device=DEVICE, 
+            #                                                                       gamma=GAMMA, 
+            #                                                                       lambda_p=LAMBDA, 
+            #                                                                       ema_sigma=EMA_SIGMA, 
+            #                                                                       nabla=NABLA, 
+            #                                                                       optimizer=AGENT_OPTIMIZER, 
+            #                                                                       scaler=SCALER)
+            # t_agent_train += time.perf_counter() - t0
             
             training_steps_finished += 1
                 
@@ -273,9 +273,12 @@ if __name__ == '__main__':
                 'reward': rewards_loss.item(),
                 'termination': terminations_loss.item(),
                 'dynamics': dynamics_loss.item(), 
-                'actor': mean_actor_loss,
-                'critic': mean_critic_loss,
-                'imagined_reward': mean_imagined_reward, 
+                # 'actor': mean_actor_loss,
+                # 'critic': mean_critic_loss,
+                # 'imagined_reward': mean_imagined_reward, 
+                'actor': 0,
+                'critic': 0,
+                'imagined_reward': 0, 
                 'real_reward': epoch_mean_score
             }
             

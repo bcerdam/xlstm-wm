@@ -22,8 +22,7 @@ def dream(xlstm_dm:XLSTM_DM,
           codes_per_latent:int, 
           batch_size:int, 
           env_actions:int,
-          device:str, 
-          decode:bool) -> Tuple:
+          device:str) -> Tuple:
     
     imagined_frames = []
     imagined_latents = []
@@ -40,14 +39,13 @@ def dream(xlstm_dm:XLSTM_DM,
         next_latent = latent[:, -1:, :].view(batch_size, 1, latent_dim, codes_per_latent)
         next_latent_sample = sample(latents_batch=next_latent, batch_size=batch_size, sequence_length=1)
 
-        if decode == True:
-            decoded_latent = decoder.forward(latents_batch=next_latent_sample, 
-                                            batch_size=batch_size, 
-                                            sequence_length=1, 
-                                            latent_dim=latent_dim, 
-                                            codes_per_latent=codes_per_latent).squeeze(1).cpu().numpy()
-            
-            imagined_frames.append(decoded_latent)
+        decoded_latent = decoder.forward(latents_batch=next_latent_sample, 
+                                        batch_size=batch_size, 
+                                        sequence_length=1, 
+                                        latent_dim=latent_dim, 
+                                        codes_per_latent=codes_per_latent).squeeze(1).cpu().numpy()
+        
+        imagined_frames.append(decoded_latent)
 
         imagined_latents.append(next_latent_sample)
 
@@ -63,7 +61,7 @@ def dream(xlstm_dm:XLSTM_DM,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train_cfg', default='config/train.yaml', type=str, help='Path to env parameters .yaml file')
+    parser.add_argument('--train_cfg', default='config/train_wm.yaml', type=str, help='Path to env parameters .yaml file')
     parser.add_argument('--env_cfg', default='config/env.yaml', type=str, help='Path to env parameters .yaml file')
     parser.add_argument('--inference_cfg', default='config/inference.yaml', type=str, help='Path to inference hyperparameters .yaml file')
     args = parser.parse_args()
@@ -71,13 +69,9 @@ if __name__ == '__main__':
     with open(args.train_cfg, 'r') as file_train, open(args.env_cfg, 'r') as file_env, open(args.inference_cfg, 'r') as file_inference:
         train_cfg = yaml.safe_load(file_train)['train']
         inference_cfg = yaml.safe_load(file_inference)['inference']
-
-        env_file_content = yaml.safe_load(file_env)
-        env_cfg = env_file_content['env']
-        dataset_cfg = env_file_content['dataset']
+        env_cfg = yaml.safe_load(file_env)['env']
     
     ENV_NAME = env_cfg['env_name']
-    REPLAY_BUFFER_PATH = dataset_cfg['replay_buffer_path']
     WEIGHTS_PATH = inference_cfg['weights_path']
     VIDEO_PATH = f'output/videos/dream/dream_{ENV_NAME}.mp4'
     FPS = inference_cfg['fps']
@@ -102,7 +96,7 @@ if __name__ == '__main__':
     ACT_FN = train_cfg['act_fn']
 
 
-    dataset = AtariDataset(replay_buffer_path=REPLAY_BUFFER_PATH, sequence_length=CONTEXT_LENGTH)
+    dataset = AtariDataset(sequence_length=CONTEXT_LENGTH)
     encoder = CategoricalEncoder(latent_dim=LATENT_DIM, codes_per_latent=CODES_PER_LATENT).to(DEVICE)
     decoder = CategoricalDecoder(latent_dim=LATENT_DIM, codes_per_latent=CODES_PER_LATENT).to(DEVICE)
     tokenizer = Tokenizer(latent_dim=LATENT_DIM, 
@@ -137,7 +131,7 @@ if __name__ == '__main__':
     xlstm_dm.eval()
     
     idx = np.random.randint(0, len(dataset))
-    observations, actions, _, _ = dataset[idx] 
+    observations, actions, rewards, terminations = dataset[idx] 
     observations = torch.from_numpy(observations).unsqueeze(0).to(DEVICE)
     actions = torch.from_numpy(actions).unsqueeze(0).to(DEVICE)
 
@@ -152,15 +146,15 @@ if __name__ == '__main__':
 
         tokens = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions)
 
-        imagined_frames, _, _, _, _ = dream(xlstm_dm=xlstm_dm, 
-                                            decoder=decoder,
-                                            tokenizer=tokenizer,
-                                            tokens=tokens, 
-                                            imagination_horizon=IMAGINATION_HORIZON, 
-                                            latent_dim=LATENT_DIM, 
-                                            codes_per_latent=CODES_PER_LATENT, 
-                                            batch_size=BATCH_SIZE, 
-                                            env_actions=ENV_ACTIONS, 
-                                            device=DEVICE)
+        imagined_frames, _, imagined_rewards, imagined_terminations, _ = dream(xlstm_dm=xlstm_dm, 
+                                                                               decoder=decoder,
+                                                                               tokenizer=tokenizer,
+                                                                               tokens=tokens, 
+                                                                               imagination_horizon=IMAGINATION_HORIZON, 
+                                                                               latent_dim=LATENT_DIM, 
+                                                                               codes_per_latent=CODES_PER_LATENT, 
+                                                                               batch_size=BATCH_SIZE, 
+                                                                               env_actions=ENV_ACTIONS, 
+                                                                               device=DEVICE)
         
         save_dream_video(imagined_frames=imagined_frames, video_path=VIDEO_PATH, fps=FPS)
