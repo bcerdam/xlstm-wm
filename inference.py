@@ -31,7 +31,7 @@ def collect_steps(env_name:str,
                   batch_size:int) -> Tuple[torch.Tensor, torch.Tensor]:
     
     gym.register_envs(ale_py)
-    env = gym.make(id=env_name, frameskip=frameskip)
+    env = gym.make(id=env_name, frameskip=1)
     env = AtariPreprocessing(env=env, 
                              noop_max=noop_max, 
                              frame_skip=frameskip, 
@@ -232,4 +232,9 @@ if __name__ == '__main__':
                                                                                env_actions=ENV_ACTIONS, 
                                                                                device=DEVICE)
         
-        save_dream_video(imagined_frames=imagined_frames, video_path=VIDEO_PATH, fps=FPS)
+        # save_dream_video(imagined_frames=imagined_frames, video_path=VIDEO_PATH, fps=FPS)
+        save_dream_video(imagined_frames=imagined_frames, 
+                         imagined_rewards=imagined_rewards, 
+                         imagined_terminations=imagined_terminations, 
+                         video_path=VIDEO_PATH, 
+                         fps=FPS)
