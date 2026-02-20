@@ -152,7 +152,7 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                                                                           gamma=gamma, 
                                                                           lambda_p=lambda_p, 
                                                                           device=device, 
-                                                                          critic=ema_critic)
+                                                                          critic=critic)
         
     state_values = critic.forward(state=env_state).squeeze(-1)
 
