@@ -64,7 +64,7 @@ def gather_steps(env_name: str,
                                     sequence_length=1, 
                                     latent_dim=latent_dim, 
                                     codes_per_latent=codes_per_latent)
-            sampled_latent = sample(latents_batch=latent, batch_size=1, sequence_length=1)
+            sampled_latent, posterior = sample(latents_batch=latent, batch_size=1, sequence_length=1)
 
             action_array = np.zeros(env.action_space.n, dtype=np.float32)
             env_state = torch.concat([sampled_latent, current_hidden_state], dim=-1)
