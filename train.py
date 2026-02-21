@@ -193,14 +193,14 @@ if __name__ == '__main__':
             t_batch_extract += time.perf_counter() - t0
             
             t0 = time.perf_counter()
-            reconstruction_loss, latents_sampled_batch, latents_batch = autoencoder_fwd_step(categorical_encoder=categorical_encoder, 
-                                                                                             categorical_decoder=categorical_decoder, 
-                                                                                             observations_batch=observations_batch, 
-                                                                                             batch_size=BATCH_SIZE, 
-                                                                                             sequence_length=SEQUENCE_LENGTH, 
-                                                                                             latent_dim=LATENT_DIM, 
-                                                                                             codes_per_latent=CODES_PER_LATENT,
-                                                                                             lpips_loss_fn=lpips_model)
+            reconstruction_loss, latents_sampled_batch, posterior = autoencoder_fwd_step(categorical_encoder=categorical_encoder, 
+                                                                                         categorical_decoder=categorical_decoder, 
+                                                                                         observations_batch=observations_batch, 
+                                                                                         batch_size=BATCH_SIZE, 
+                                                                                         sequence_length=SEQUENCE_LENGTH, 
+                                                                                         latent_dim=LATENT_DIM, 
+                                                                                         codes_per_latent=CODES_PER_LATENT,
+                                                                                         lpips_loss_fn=lpips_model)
             t_ae_fwd += time.perf_counter() - t0
             
             t0 = time.perf_counter()
@@ -209,7 +209,7 @@ if __name__ == '__main__':
 
             t0 = time.perf_counter()
             rewards_loss, terminations_loss, dynamics_loss, representation_loss = dm_fwd_step(dynamics_model=xlstm_dm,
-                                                                                              latents_batch=latents_batch, 
+                                                                                              posterior=posterior, 
                                                                                               tokens_batch=tokens_batch, 
                                                                                               rewards_batch=rewards_batch, 
                                                                                               terminations_batch=terminations_batch, 
