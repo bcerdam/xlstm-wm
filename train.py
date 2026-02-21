@@ -56,6 +56,8 @@ if __name__ == '__main__':
     SEQUENCE_LENGTH = train_wm_cfg['sequence_length']
     WORLD_MODEL_LEARNING_RATE = train_wm_cfg['world_model_learning_rate']
     DATASET_NUM_WORKERS = train_wm_cfg['dataloader_num_workers']
+    DYN_BETA = train_wm_cfg['dyn_beta']
+    REP_BETA = train_wm_cfg['rep_beta']
 
     # autoencoder
     LATENT_DIM = train_wm_cfg['latent_dim']
@@ -206,28 +208,32 @@ if __name__ == '__main__':
             t_tokenizer += time.perf_counter() - t0
 
             t0 = time.perf_counter()
-            rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=xlstm_dm,
-                                                                         latents_batch=latents_sampled_batch, 
-                                                                         tokens_batch=tokens_batch, 
-                                                                         rewards_batch=rewards_batch, 
-                                                                         terminations_batch=terminations_batch, 
-                                                                         batch_size=BATCH_SIZE, 
-                                                                         sequence_length=SEQUENCE_LENGTH, 
-                                                                         latent_dim=LATENT_DIM, 
-                                                                         codes_per_latent=CODES_PER_LATENT)
+            rewards_loss, terminations_loss, dynamics_loss, representation_loss = dm_fwd_step(dynamics_model=xlstm_dm,
+                                                                                              latents_batch=latents_sampled_batch, 
+                                                                                              tokens_batch=tokens_batch, 
+                                                                                              rewards_batch=rewards_batch, 
+                                                                                              terminations_batch=terminations_batch, 
+                                                                                              batch_size=BATCH_SIZE, 
+                                                                                              sequence_length=SEQUENCE_LENGTH, 
+                                                                                              latent_dim=LATENT_DIM, 
+                                                                                              codes_per_latent=CODES_PER_LATENT,
+                                                                                              latents_sampled_batch=latents_sampled_batch)
             t_dm_fwd += time.perf_counter() - t0
             
             t0 = time.perf_counter()
             mean_total_loss = total_loss_step(reconstruction_loss=reconstruction_loss, 
                                               reward_loss=rewards_loss, 
                                               termination_loss=terminations_loss, 
-                                              dynamics_loss=dynamics_loss,
+                                              dynamics_loss=dynamics_loss, 
+                                              representation_loss=representation_loss, 
                                               categorical_encoder=categorical_encoder, 
                                               categorical_decoder=categorical_decoder, 
                                               tokenizer=tokenizer, 
                                               dynamics_model=xlstm_dm, 
                                               optimizer=OPTIMIZER, 
-                                              scaler=SCALER)
+                                              scaler=SCALER, 
+                                              dyn_beta=DYN_BETA, 
+                                              rep_beta=REP_BETA)
             t_loss_calc += time.perf_counter() - t0
             
             # t0 = time.perf_counter()
@@ -273,6 +279,7 @@ if __name__ == '__main__':
                 'reward': rewards_loss.item(),
                 'termination': terminations_loss.item(),
                 'dynamics': dynamics_loss.item(), 
+                'representation': representation_loss.item(),
                 # 'actor': mean_actor_loss,
                 # 'critic': mean_critic_loss,
                 # 'imagined_reward': mean_imagined_reward, 

@@ -18,3 +18,5 @@ train_wm:
   proj_factor: 2.0
   act_fn: 'gelu'  
   dataloader_num_workers: 4
+  dyn_beta: 0.5
+  rep_beta: 0.1

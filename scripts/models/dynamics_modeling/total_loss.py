@@ -9,14 +9,17 @@ def total_loss_step(reconstruction_loss:torch.Tensor,
                     reward_loss:torch.Tensor, 
                     termination_loss:torch.Tensor, 
                     dynamics_loss:torch.Tensor,
+                    representation_loss:torch.Tensor, 
                     categorical_encoder:CategoricalEncoder, 
                     categorical_decoder:CategoricalDecoder, 
                     tokenizer:Tokenizer, 
                     dynamics_model:XLSTM_DM, 
                     optimizer:torch.optim.Optimizer, 
-                    scaler:torch.amp.grad_scaler) -> torch.Tensor:
+                    scaler:torch.amp.grad_scaler, 
+                    dyn_beta:float, 
+                    rep_beta:float) -> torch.Tensor:
             
-    sum_of_losses = (reconstruction_loss+reward_loss+termination_loss+dynamics_loss)
+    sum_of_losses = (reconstruction_loss+reward_loss+termination_loss+dyn_beta*dynamics_loss+rep_beta*representation_loss)
 
     optimizer.zero_grad(set_to_none=True)
     scaler.scale(sum_of_losses).backward()

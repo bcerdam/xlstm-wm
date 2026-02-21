@@ -79,7 +79,8 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
         'reconstruction': {'color': '#1976D2', 'label': 'Recon'},
         'reward':         {'color': '#388E3C', 'label': 'Reward'},
         'termination':    {'color': '#FBC02D', 'label': 'Term'},
-        'dynamics':       {'color': '#00BCD4', 'label': 'Dyn'},
+        'dynamics':       {'color': '#00BCD4', 'label': 'Dyn'}, 
+        'representation': {'color': '#FBC02D', 'label': 'Rep'}
     }
     
     for key, style in wm_styles.items():
