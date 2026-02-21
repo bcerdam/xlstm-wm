@@ -236,7 +236,9 @@ if __name__ == '__main__':
             t_loss_calc += time.perf_counter() - t0
             
             t0 = time.perf_counter()
-            mean_actor_loss, mean_critic_loss, mean_imagined_reward = 0.0
+            mean_actor_loss = 0.0
+            mean_critic_loss = 0.0
+            mean_imagined_reward = 0.0
             if training_steps_finished >= 3*10**4:
                 mean_actor_loss, mean_critic_loss, mean_imagined_reward = train_agent(latents_sampled_batch=latents_sampled_batch, 
                                                                                       actions_batch=actions_batch, 
