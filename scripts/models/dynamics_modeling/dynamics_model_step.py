@@ -4,7 +4,7 @@ from torch.distributions import OneHotCategorical
 from torch.distributions.kl import kl_divergence
 from typing import Tuple
 from .xlstm_dm import XLSTM_DM
-from categorical_vae.sampler import latent_unimix
+from ..categorical_vae.sampler import latent_unimix
 
 
 def dm_fwd_step(dynamics_model:XLSTM_DM, 
