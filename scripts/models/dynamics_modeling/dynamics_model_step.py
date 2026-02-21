@@ -28,10 +28,10 @@ def dm_fwd_step(dynamics_model:XLSTM_DM,
 
         latents_sampled_batch = latents_sampled_batch.view(size=(batch_size, sequence_length, latent_dim, codes_per_latent))
 
-        dynamics_kl = kl_div(input=latents_sampled_batch.detach(), target=next_latents_pred)
-        dynamics_loss = torch.max(1, dynamics_kl)
+        dynamics_kl = kl_div(input=next_latents_pred, target=latents_sampled_batch.detach(), reduction='batchmean')
+        dynamics_loss = torch.clamp(dynamics_kl, min=1.0)
 
-        representation_kl = kl_div(input=latents_sampled_batch, target=next_latents_pred.detach())
-        representation_loss = torch.max(1, representation_kl)
+        representation_kl = kl_div(input=next_latents_pred.detach(), target=latents_sampled_batch, reduction='batchmean')
+        representation_loss = torch.clamp(representation_kl, min=1.0)
         
     return rewards_loss, terminations_loss, dynamics_loss, representation_loss
