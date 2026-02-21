@@ -194,6 +194,11 @@ if __name__ == '__main__':
                         bias_init=BIAS_INIT, 
                         proj_factor=PROJ_FACTOR, 
                         act_fn=ACT_FN).to(DEVICE)
+
+    actor = Actor(latent_dim=LATENT_DIM, 
+                codes_per_latent=CODES_PER_LATENT, 
+                embedding_dim=EMBEDDING_DIM, 
+                env_actions=ENV_ACTIONS).to(DEVICE)
     
     checkpoint = torch.load(WEIGHTS_PATH, map_location=DEVICE)
     def clean_state_dict(sd):
@@ -203,11 +208,13 @@ if __name__ == '__main__':
     decoder.load_state_dict(clean_state_dict(checkpoint['decoder']))
     tokenizer.load_state_dict(clean_state_dict(checkpoint['tokenizer']))
     xlstm_dm.load_state_dict(clean_state_dict(checkpoint['dynamics']))
+    actor.load_state_dict(clean_state_dict(checkpoint['actor']))
 
     encoder.eval()
     decoder.eval()
     tokenizer.eval()
     xlstm_dm.eval()
+    actor.eval()
     
     observations, actions = collect_steps(env_name=ENV_NAME, 
                                           frameskip=FRAMESKIP, 
@@ -241,7 +248,8 @@ if __name__ == '__main__':
                                                                                codes_per_latent=CODES_PER_LATENT, 
                                                                                batch_size=BATCH_SIZE, 
                                                                                env_actions=ENV_ACTIONS, 
-                                                                               device=DEVICE)
+                                                                               device=DEVICE, 
+                                                                               actor=actor)
         
         # save_dream_video(imagined_frames=imagined_frames, video_path=VIDEO_PATH, fps=FPS)
         save_dream_video(imagined_frames=imagined_frames, 
