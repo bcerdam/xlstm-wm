@@ -216,8 +216,7 @@ if __name__ == '__main__':
                                                                                               batch_size=BATCH_SIZE, 
                                                                                               sequence_length=SEQUENCE_LENGTH, 
                                                                                               latent_dim=LATENT_DIM, 
-                                                                                              codes_per_latent=CODES_PER_LATENT,
-                                                                                              latents_sampled_batch=latents_sampled_batch)
+                                                                                              codes_per_latent=CODES_PER_LATENT)
             t_dm_fwd += time.perf_counter() - t0
             
             t0 = time.perf_counter()
