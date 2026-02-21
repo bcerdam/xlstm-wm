@@ -28,8 +28,10 @@ def dm_fwd_step(dynamics_model:XLSTM_DM,
         rewards_loss = mse_loss(input=rewards_pred[:, :-1].squeeze(dim=-1), target=rewards_batch[:, 1:].float())
         terminations_loss = binary_cross_entropy_with_logits(input=terminations_pred[:, :-1].squeeze(dim=-1), target=terminations_batch[:, 1:].float())
 
+        print(posterior.shape, prior.shape)
         post_logits = posterior[:, 1:]
         prior_logits = prior[:, :-1]
+        print(post_logits.shape, prior_logits.shape)
 
         dynamics_kl = kl_divergence(OneHotCategorical(logits=post_logits.detach()), OneHotCategorical(logits=prior_logits))
         dynamics_loss = torch.clamp(dynamics_kl.sum(dim=-1).mean(), min=1.0)
