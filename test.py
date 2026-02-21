@@ -30,7 +30,7 @@ def run_episode(env_name: str,
                 latent_dim:int, 
                 codes_per_latent:int, 
                 device:str, 
-                context_length:int) -> Tuple[List[np.ndarray], List[np.int64], List[np.float64], List[bool], List[bool]]:
+                context_length:int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
     gym.register_envs(ale_py)
     env = gym.make(id=env_name, frameskip=1)
@@ -58,7 +58,7 @@ def run_episode(env_name: str,
     truncated = False
     first_iter = True
     with torch.no_grad():
-        while termination == False or truncated == False:
+        while termination == False:
             all_observations.append(observation)
 
             observation_tensor = torch.from_numpy(observation).unsqueeze(0).unsqueeze(0).to(device=device)
@@ -74,11 +74,11 @@ def run_episode(env_name: str,
 
             if first_iter == True:
                 action = env.action_space.sample()
+                first_iter = False
             else:
                 action_logits = actor(state=env_state)
                 policy = OneHotCategorical(logits=action_logits)
                 action = torch.argmax(policy.sample()).item()
-                first_iter = False
 
             action_array[action] = 1.0
             tensor_action_array = torch.from_numpy(action_array).unsqueeze(0).unsqueeze(0).to(device=device)
@@ -101,13 +101,6 @@ def run_episode(env_name: str,
 
             all_rewards.append(reward)
             all_terminations.append(termination)
-
-            if termination or truncated:
-                observation, info = env.reset()
-                observation = reshape_observation(normalize_observation(observation=observation))
-
-                context_tokens = None
-                current_hidden_state = torch.zeros(1, 1, embedding_dim, device=device)
 
     all_observations = np.array(all_observations)
     all_actions = np.array(all_actions)
@@ -217,10 +210,14 @@ if __name__ == '__main__':
                                                                                context_length=CONTEXT_LENGTH)
     
     print(all_rewards)
-    print(f'Promedio rewards: {np.mean(all_rewards)}')
+    print(f'Sum rewards: {np.sum(all_rewards)}')
+
+    all_observations = np.expand_dims(all_observations, axis=1)
+    all_rewards = np.expand_dims(all_rewards, axis=1)
+    all_terminations = np.expand_dims(all_terminations, axis=1)
 
     save_dream_video(imagined_frames=all_observations, 
-                         imagined_rewards=all_rewards, 
-                         imagined_terminations=all_terminations, 
-                         video_path=VIDEO_PATH, 
-                         fps=FPS)
+                     imagined_rewards=all_rewards, 
+                     imagined_terminations=all_terminations, 
+                     video_path=VIDEO_PATH, 
+                     fps=FPS)
