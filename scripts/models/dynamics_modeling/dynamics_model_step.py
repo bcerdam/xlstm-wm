@@ -24,7 +24,6 @@ def dm_fwd_step(dynamics_model:XLSTM_DM,
         next_latents_pred = next_latents_pred.view(size=(batch_size, sequence_length, latent_dim, codes_per_latent))
         posterior = posterior.view(size=(batch_size, sequence_length, latent_dim, codes_per_latent))
         prior = latent_unimix(latents_batch=next_latents_pred, uniform_mixture_percentage=0.01)
-        # latents_batch = latents_batch.view(batch_size, sequence_length, latent_dim, codes_per_latent)
 
         rewards_loss = mse_loss(input=rewards_pred[:, :-1].squeeze(dim=-1), target=rewards_batch[:, 1:].float())
         terminations_loss = binary_cross_entropy_with_logits(input=terminations_pred[:, :-1].squeeze(dim=-1), target=terminations_batch[:, 1:].float())
@@ -33,9 +32,11 @@ def dm_fwd_step(dynamics_model:XLSTM_DM,
         prior_logits = prior[:, :-1]
 
         dynamics_kl = kl_divergence(OneHotCategorical(logits=post_logits.detach()), OneHotCategorical(logits=prior_logits))
-        dynamics_loss = torch.clamp(dynamics_kl.sum(dim=-1).mean(), min=1.0)
+        # dynamics_loss = torch.clamp(dynamics_kl.sum(dim=-1).mean(), min=1.0)
+        dynamics_loss = dynamics_kl.sum(dim=-1).mean()
 
         representation_kl = kl_divergence(OneHotCategorical(logits=post_logits), OneHotCategorical(logits=prior_logits.detach()))
-        representation_loss = torch.clamp(representation_kl.sum(dim=-1).mean(), min=1.0)
+        # representation_loss = torch.clamp(representation_kl.sum(dim=-1).mean(), min=1.0)
+        representation_loss = representation_kl.sum(dim=-1).mean()
 
     return rewards_loss, terminations_loss, dynamics_loss, representation_loss
