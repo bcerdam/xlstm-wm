@@ -23,6 +23,7 @@ def dm_fwd_step(dynamics_model:XLSTM_DM,
 
         next_latents_pred = next_latents_pred.view(size=(batch_size, sequence_length, latent_dim, codes_per_latent))
         prior = latent_unimix(latents_batch=next_latents_pred, uniform_mixture_percentage=0.01)
+        prior = prior.view(size=(batch_size, sequence_length, latent_dim, codes_per_latent))
         # latents_batch = latents_batch.view(batch_size, sequence_length, latent_dim, codes_per_latent)
 
         rewards_loss = mse_loss(input=rewards_pred[:, :-1].squeeze(dim=-1), target=rewards_batch[:, 1:].float())
