@@ -145,11 +145,11 @@ def train_agent(latents_sampled_batch:torch.Tensor,
         # if (imagined_reward <= -0.8).any():
         #     print(f"Alert: Negative reward predicted. Min: {imagined_reward.min().item():.3f}")
             
-        if (imagined_reward >= 0.8).any():
-            print(f"Alert: Positive reward predicted. Max: {imagined_reward.max().item():.3f}")
+        # if (imagined_reward >= 0.8).any():
+        #     print(f"Alert: Positive reward predicted. Max: {imagined_reward.max().item():.3f}")
             
-        if (imagined_termination >= 0.8).any():
-            print(f"Alert: Termination predicted. Max prob: {imagined_termination.max().item():.3f}")
+        # if (imagined_termination >= 0.8).any():
+        #     print(f"Alert: Termination predicted. Max prob: {imagined_termination.max().item():.3f}")
 
         # t_dream = time.perf_counter() - t0
         # print(f'-- DREAN TIME: {t_dream}')

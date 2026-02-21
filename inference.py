@@ -16,6 +16,8 @@ from scripts.models.categorical_vae.decoder import CategoricalDecoder
 from scripts.models.dynamics_modeling.tokenizer import Tokenizer
 from scripts.models.dynamics_modeling.xlstm_dm import XLSTM_DM
 from scripts.models.categorical_vae.sampler import sample
+from scripts.models.agent.actor import Actor
+from torch.distributions import OneHotCategorical
 
 
 def collect_steps(env_name:str, 
@@ -81,9 +83,11 @@ def dream(xlstm_dm:XLSTM_DM,
           codes_per_latent:int, 
           batch_size:int, 
           env_actions:int,
-          device:str) -> Tuple:
+          device:str, 
+          actor:Actor) -> Tuple:
     
     imagined_frames = []
+    imagined_actions = []
     imagined_latents = []
     imagined_rewards = []
     imagined_terminations = []
@@ -108,11 +112,18 @@ def dream(xlstm_dm:XLSTM_DM,
 
         imagined_latents.append(next_latent_sample)
 
-        next_action = torch.zeros((batch_size, 1, env_actions), device=device)
-        random_indices = torch.randint(0, env_actions, (batch_size,), device=device)
-        next_action[torch.arange(batch_size), 0, random_indices] = 1.0
+        #
+        flattened_latent = next_latent_sample.view(batch_size, -1)
+        current_hidden = hidden_state[:, -1, :]
+        env_state = torch.cat([flattened_latent, current_hidden], dim=-1)
 
-        next_token = tokenizer.forward(latents_sampled_batch=next_latent_sample, actions_batch=next_action)
+        action_logits = actor.forward(state=env_state)
+        policy = OneHotCategorical(logits=action_logits)
+        next_action = policy.sample()
+        
+        imagined_actions.append(next_action)
+
+        next_token = tokenizer.forward(latents_sampled_batch=next_latent_sample, actions_batch=next_action.unsqueeze(dim=1))
         tokens = torch.cat([tokens[:, 1:], next_token], dim=1)
 
     return imagined_frames, imagined_latents, imagined_rewards, imagined_terminations, hidden_states
