@@ -26,6 +26,8 @@ def dm_fwd_step(dynamics_model:XLSTM_DM,
 
         terminations_loss = binary_cross_entropy_with_logits(input=terminations_pred.squeeze(dim=-1), target=terminations_batch.float())
 
+        latents_sampled_batch = latents_sampled_batch.view(size=(batch_size, sequence_length, latent_dim, codes_per_latent))
+
         dynamics_kl = kl_div(input=latents_sampled_batch.detach(), target=next_latents_pred)
         dynamics_loss = torch.max(1, dynamics_kl)
 
