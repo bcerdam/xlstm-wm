@@ -1,7 +1,7 @@
 train_wm:
   epochs: 500
   training_steps_per_epoch: 200
-  batch_size: 32
+  batch_size: 128
   sequence_length: 64
   latent_dim: 32
   codes_per_latent: 32
