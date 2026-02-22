@@ -202,16 +202,18 @@ if __name__ == '__main__':
             t_ae_fwd += time.perf_counter() - t0
             
             t0 = time.perf_counter()
-            tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch.detach(), actions_batch=actions_batch)
+            wm_specific_batch_size = BATCH_SIZE // 4
+            wm_latents_sampled_batch=  latents_sampled_batch[:wm_specific_batch_size, :, :, :]
+            tokens_batch = tokenizer.forward(latents_sampled_batch=wm_latents_sampled_batch.detach(), actions_batch=actions_batch[:wm_specific_batch_size, :, :])
             t_tokenizer += time.perf_counter() - t0
 
             t0 = time.perf_counter()
             rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=xlstm_dm,
-                                                                         latents_batch=latents_sampled_batch, 
+                                                                         latents_batch=wm_latents_sampled_batch, 
                                                                          tokens_batch=tokens_batch, 
-                                                                         rewards_batch=rewards_batch, 
-                                                                         terminations_batch=terminations_batch, 
-                                                                         batch_size=BATCH_SIZE, 
+                                                                         rewards_batch=rewards_batch[:wm_specific_batch_size, :, :], 
+                                                                         terminations_batch=terminations_batch[:wm_specific_batch_size, :, :], 
+                                                                         batch_size=wm_specific_batch_size, 
                                                                          sequence_length=SEQUENCE_LENGTH, 
                                                                          latent_dim=LATENT_DIM, 
                                                                          codes_per_latent=CODES_PER_LATENT)
