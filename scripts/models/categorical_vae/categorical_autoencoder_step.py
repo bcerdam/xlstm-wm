@@ -9,7 +9,8 @@ from .sampler import sample
 def autoencoder_fwd_step(categorical_encoder:CategoricalEncoder, 
                          categorical_decoder:CategoricalDecoder, 
                          observations_batch:torch.Tensor, 
-                         batch_size:int, 
+                         overall_batch_size_needed:int, 
+                         wm_batch_size:int, 
                          sequence_length:int, 
                          latent_dim:int, 
                          codes_per_latent:int,
@@ -20,18 +21,17 @@ def autoencoder_fwd_step(categorical_encoder:CategoricalEncoder,
 
     with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
         latents_batch = categorical_encoder.forward(observations_batch=observations_batch, 
-                                                    batch_size=batch_size, 
+                                                    batch_size=overall_batch_size_needed, 
                                                     sequence_length=sequence_length, 
                                                     latent_dim=latent_dim, 
                                                     codes_per_latent=codes_per_latent)        
 
-        latents_sampled_batch = sample(latents_batch=latents_batch, batch_size=batch_size, sequence_length=sequence_length)
+        latents_sampled_batch = sample(latents_batch=latents_batch, batch_size=overall_batch_size_needed, sequence_length=sequence_length)
 
-        wm_specific_batch_size = batch_size // 4
-        wm_observations_batch =  observations_batch[:wm_specific_batch_size, :, :, :]
+        wm_observations_batch =  observations_batch[:wm_batch_size, :, :, :]
 
-        reconstructed_observations_batch = categorical_decoder.forward(latents_batch=latents_sampled_batch[:wm_specific_batch_size, :, :], 
-                                                                       batch_size=wm_specific_batch_size, 
+        reconstructed_observations_batch = categorical_decoder.forward(latents_batch=latents_sampled_batch[:wm_batch_size, :, :], 
+                                                                       batch_size=wm_batch_size, 
                                                                        sequence_length=sequence_length, 
                                                                        latent_dim=latent_dim, 
                                                                        codes_per_latent=codes_per_latent)

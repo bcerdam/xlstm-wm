@@ -123,7 +123,6 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                 optimizer:torch.optim.Adam, 
                 scaler:torch.amp.GradScaler) -> Tuple:
 
-    current_batch_size = latents_sampled_batch.shape[0] # (32, 64, 32, 32) or (32, 64, 32*32) -> (256, 8, 32*32)
     with torch.no_grad():
         latents_sampled_batch = latents_sampled_batch.view(-1, context_length, latent_dim*codes_per_latent)
         actions_batch = actions_batch.view(-1, context_length, env_actions)
@@ -173,14 +172,14 @@ def train_agent(latents_sampled_batch:torch.Tensor,
     entropy = policy.entropy()
 
     mean_actor_loss = actor_loss(batch_lambda_returns=batch_lambda_returns, 
-                                    state_values=state_values, 
-                                    log_policy=log_policy, 
-                                    nabla=nabla, 
-                                    entropy=entropy)
+                                 state_values=state_values, 
+                                 log_policy=log_policy, 
+                                 nabla=nabla, 
+                                 entropy=entropy)
     
     mean_critic_loss = critic_loss(batch_lambda_returns=batch_lambda_returns, 
-                                    state_values=state_values, 
-                                    ema_state_values=ema_state_values)
+                                   state_values=state_values, 
+                                   ema_state_values=ema_state_values)
     
     optimizer.zero_grad(set_to_none=True)
     scaler.scale(mean_actor_loss).backward()
