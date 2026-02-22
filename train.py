@@ -203,7 +203,7 @@ if __name__ == '__main__':
             
             t0 = time.perf_counter()
             wm_specific_batch_size = BATCH_SIZE // 4
-            wm_latents_sampled_batch=  latents_sampled_batch[:wm_specific_batch_size, :, :, :]
+            wm_latents_sampled_batch=  latents_sampled_batch[:wm_specific_batch_size, :, :]
             tokens_batch = tokenizer.forward(latents_sampled_batch=wm_latents_sampled_batch.detach(), actions_batch=actions_batch[:wm_specific_batch_size, :, :])
             t_tokenizer += time.perf_counter() - t0
 
