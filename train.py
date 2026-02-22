@@ -139,6 +139,7 @@ if __name__ == '__main__':
 
     categorical_encoder = torch.compile(categorical_encoder)
     categorical_decoder = torch.compile(categorical_decoder)
+    xlstm_dm = torch.compile(xlstm_dm)
     actor = torch.compile(actor)
     critic = torch.compile(critic)
     ema_critic = torch.compile(ema_critic)

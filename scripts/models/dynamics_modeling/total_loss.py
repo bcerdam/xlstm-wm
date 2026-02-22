@@ -23,11 +23,6 @@ def total_loss_step(reconstruction_loss:torch.Tensor,
     scaler.scale(sum_of_losses).backward()
     scaler.unscale_(optimizer)
     
-    # torch.nn.utils.clip_grad_norm_(categorical_encoder.parameters(), 1000.0)
-    # torch.nn.utils.clip_grad_norm_(categorical_decoder.parameters(), 1000.0)
-    # torch.nn.utils.clip_grad_norm_(tokenizer.parameters(), 1000.0)
-    # torch.nn.utils.clip_grad_norm_(dynamics_model.parameters(), 1000.0)
-
     all_parameters = itertools.chain(
         categorical_encoder.parameters(),
         categorical_decoder.parameters(),
