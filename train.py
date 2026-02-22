@@ -56,7 +56,7 @@ if __name__ == '__main__':
     AGENT_BATCH_SIZE = train_agent_cfg['agent_batch_size']
     SEQUENCE_LENGTH = train_wm_cfg['sequence_length']
     CONTEXT_LENGTH = train_agent_cfg['context_length']
-    OVERALL_BATCH_SIZE_NEEDED = AGENT_BATCH_SIZE*CONTEXT_LENGTH/SEQUENCE_LENGTH
+    OVERALL_BATCH_SIZE_NEEDED = AGENT_BATCH_SIZE*CONTEXT_LENGTH//SEQUENCE_LENGTH
 
     WORLD_MODEL_LEARNING_RATE = train_wm_cfg['world_model_learning_rate']
     DATASET_NUM_WORKERS = train_wm_cfg['dataloader_num_workers']
