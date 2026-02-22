@@ -1,4 +1,5 @@
 import torch
+import itertools
 from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.categorical_vae.decoder import CategoricalDecoder
 from scripts.models.dynamics_modeling.tokenizer import Tokenizer
@@ -22,12 +23,23 @@ def total_loss_step(reconstruction_loss:torch.Tensor,
     scaler.scale(sum_of_losses).backward()
     scaler.unscale_(optimizer)
     
-    torch.nn.utils.clip_grad_norm_(categorical_encoder.parameters(), 1000.0)
-    torch.nn.utils.clip_grad_norm_(categorical_decoder.parameters(), 1000.0)
-    torch.nn.utils.clip_grad_norm_(tokenizer.parameters(), 1000.0)
-    torch.nn.utils.clip_grad_norm_(dynamics_model.parameters(), 1000.0)
+    # torch.nn.utils.clip_grad_norm_(categorical_encoder.parameters(), 1000.0)
+    # torch.nn.utils.clip_grad_norm_(categorical_decoder.parameters(), 1000.0)
+    # torch.nn.utils.clip_grad_norm_(tokenizer.parameters(), 1000.0)
+    # torch.nn.utils.clip_grad_norm_(dynamics_model.parameters(), 1000.0)
+
+    all_parameters = itertools.chain(
+        categorical_encoder.parameters(),
+        categorical_decoder.parameters(),
+        tokenizer.parameters(),
+        dynamics_model.parameters()
+    )
+    torch.nn.utils.clip_grad_norm_(all_parameters, 1000.0)
     
     scaler.step(optimizer)
     scaler.update()
 
     return sum_of_losses
+    
+
+    
