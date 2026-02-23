@@ -71,14 +71,13 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     np.save(history_path, loss_history)
 
     current_epoch = len(loss_history['total'])
+    max_x = epochs * training_steps_per_epoch
     x_values = np.arange(1, current_epoch + 1) * training_steps_per_epoch
 
-    fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(6, 8), dpi=200, sharex=True)
+    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6, 8), dpi=200, sharex=True)
     
     ax_wm = axes[0]
-    wm_styles = {
-        'total': {'color': '#D32F2F', 'label': 'Total'}
-    }
+    wm_styles = {'total': {'color': '#D32F2F', 'label': 'Total'}}
     
     for key, style in wm_styles.items():
         if key in loss_history:
@@ -108,12 +107,16 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     if 'mean_episode_reward' in loss_history:
         y_vals = np.array(loss_history['mean_episode_reward'], dtype=float)
         mask = ~np.isnan(y_vals)
-        ax_im.plot(x_values[mask], y_vals[mask], color='#FF9800', linewidth=1.0, label='Mean Episode Reward')
+        ax_im.plot(x_values[mask], y_vals[mask], color='#FF9800', linewidth=1.0, marker='o', markersize=2, label='Mean Episode Reward')
 
     ax_im.set_title("Mean Episode Reward", fontsize=7, fontweight='bold')
     ax_im.set_ylabel("Reward", fontsize=6)
+    ax_im.set_xlabel("Total Training Steps", fontsize=6)
     ax_im.legend(fontsize=5, loc='upper left', framealpha=0.8)
     ax_im.grid(True, linestyle='--', alpha=0.3)
+    
+    ax_im.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/1000)}K'))
+    ax_im.set_xlim(0, max_x)
 
     for ax in axes:
         ax.tick_params(axis='both', which='major', labelsize=5)
