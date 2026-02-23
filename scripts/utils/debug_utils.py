@@ -51,7 +51,10 @@ def rollout_video(h5_path:str, start_idx:int, steps:int, video_fps:int, output_p
 
 def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epoch: int, epochs: int) -> None:
     keys = new_losses[0].keys()
-    epoch_means = {k: np.mean([d[k] for d in new_losses]) for k in keys}
+    epoch_means = {}
+    for k in keys:
+        valid_vals = [d[k] for d in new_losses if d[k] is not None]
+        epoch_means[k] = np.mean(valid_vals) if valid_vals else np.nan
     
     output_dir = 'output/logs'
     os.makedirs(output_dir, exist_ok=True)
@@ -68,18 +71,13 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     np.save(history_path, loss_history)
 
     current_epoch = len(loss_history['total'])
-    max_x = epochs * training_steps_per_epoch
     x_values = np.arange(1, current_epoch + 1) * training_steps_per_epoch
 
     fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(6, 8), dpi=200, sharex=True)
     
     ax_wm = axes[0]
     wm_styles = {
-        'total':          {'color': '#D32F2F', 'label': 'Total'},
-        'reconstruction': {'color': '#1976D2', 'label': 'Recon'},
-        'reward':         {'color': '#388E3C', 'label': 'Reward'},
-        'termination':    {'color': '#FBC02D', 'label': 'Term'},
-        'dynamics':       {'color': '#00BCD4', 'label': 'Dyn'},
+        'total': {'color': '#D32F2F', 'label': 'Total'}
     }
     
     for key, style in wm_styles.items():
@@ -107,26 +105,15 @@ def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epo
     ax_ac.grid(True, linestyle='--', alpha=0.3)
 
     ax_im = axes[2]
-    if 'imagined_reward' in loss_history:
-        ax_im.plot(x_values, loss_history['imagined_reward'], color='#FF9800', linewidth=1.0, label='Imagined')
+    if 'mean_episode_reward' in loss_history:
+        y_vals = np.array(loss_history['mean_episode_reward'], dtype=float)
+        mask = ~np.isnan(y_vals)
+        ax_im.plot(x_values[mask], y_vals[mask], color='#FF9800', linewidth=1.0, label='Mean Episode Reward')
 
-    ax_im.set_title("Mean Imagined Reward", fontsize=7, fontweight='bold')
+    ax_im.set_title("Mean Episode Reward", fontsize=7, fontweight='bold')
     ax_im.set_ylabel("Reward", fontsize=6)
     ax_im.legend(fontsize=5, loc='upper left', framealpha=0.8)
     ax_im.grid(True, linestyle='--', alpha=0.3)
-
-    ax_real = axes[3]
-    if 'real_reward' in loss_history:
-        ax_real.plot(x_values, loss_history['real_reward'], color='#4CAF50', linewidth=1.0, label='Real')
-
-    ax_real.set_title("Mean Real Episode Return", fontsize=7, fontweight='bold')
-    ax_real.set_ylabel("Score", fontsize=6)
-    ax_real.set_xlabel("Total Training Steps", fontsize=6)
-    ax_real.legend(fontsize=5, loc='upper left', framealpha=0.8)
-    ax_real.grid(True, linestyle='--', alpha=0.3)
-
-    ax_real.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/1000)}K'))
-    ax_real.set_xlim(0, max_x)
 
     for ax in axes:
         ax.tick_params(axis='both', which='major', labelsize=5)

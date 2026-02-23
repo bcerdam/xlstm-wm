@@ -23,6 +23,7 @@ from scripts.models.dynamics_modeling.total_loss import total_loss_step
 from scripts.models.agent.train_agent import train_agent
 from scripts.models.agent.critic import Critic
 from scripts.models.agent.actor import Actor
+from .test import run_episode
 
 import warnings
 warnings.filterwarnings("ignore", message="The parameter 'pretrained' is deprecated")
@@ -45,6 +46,9 @@ if __name__ == '__main__':
         shutil.rmtree('output/logs')
 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    PLOT_TRAIN_STATUS = train_wm_cfg['plot_train_status']
+    RUN_EVAL_EPISODES = train_wm_cfg['run_eval_episodes']
+    N_EVAL_EPISODES = train_wm_cfg['n_eval_episodes']
 
     ENV_NAME = env_cfg['env_name']
     ENV_STEPS_PER_EPOCH = env_cfg['env_steps_per_epoch']
@@ -272,26 +276,39 @@ if __name__ == '__main__':
                                 agent_optimizer=AGENT_OPTIMIZER, 
                                 scaler=SCALER,
                                 step=training_steps_finished)
+                
+            all_episodes_mean_reward = None
+            if RUN_EVAL_EPISODES == True and training_steps_finished % 2500 == 0:
+                episode_mean_rewards = []
+                for episode in range(N_EVAL_EPISODES):
+                    _, _, all_rewards, _ = run_episode(**env_cfg, 
+                                                    actor=actor, 
+                                                    encoder=categorical_encoder, 
+                                                    tokenizer=tokenizer, 
+                                                    xlstm_dm=xlstm_dm, 
+                                                    latent_dim=LATENT_DIM, 
+                                                    codes_per_latent=CODES_PER_LATENT, 
+                                                    device=DEVICE, 
+                                                    context_length=CONTEXT_LENGTH)
+                    episode_mean_rewards.append(np.mean(all_rewards))
+                
+                all_episodes_mean_reward = np.mean(np.array(episode_mean_rewards))
             
             step_metrics = {
                 'total': mean_total_loss.item(),
-                'reconstruction': reconstruction_loss.item(),
-                'reward': rewards_loss.item(),
-                'termination': terminations_loss.item(),
-                'dynamics': dynamics_loss.item(), 
                 'actor': mean_actor_loss,
                 'critic': mean_critic_loss,
-                'imagined_reward': mean_imagined_reward, 
-                'real_reward': epoch_mean_score
+                'mean_episode_reward': all_episodes_mean_reward
             }
             
             epoch_loss_history.append(step_metrics)
         
-        t0 = time.perf_counter()
-        plot_current_loss(new_losses=epoch_loss_history, 
-                          training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
-                          epochs=EPOCHS)
-        t_plot = time.perf_counter() - t0
+        if PLOT_TRAIN_STATUS == True:
+            t0 = time.perf_counter()
+            plot_current_loss(new_losses=epoch_loss_history, 
+                            training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
+                            epochs=EPOCHS)
+            t_plot = time.perf_counter() - t0
 
         print(f"--- Epoch {epoch} Timing Stats ---")
         print(f"(1) Data Init:       {t_data_init:.4f}s")
