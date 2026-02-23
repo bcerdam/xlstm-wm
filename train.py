@@ -23,7 +23,7 @@ from scripts.models.dynamics_modeling.total_loss import total_loss_step
 from scripts.models.agent.train_agent import train_agent
 from scripts.models.agent.critic import Critic
 from scripts.models.agent.actor import Actor
-from .test import run_episode
+from test import run_episode
 
 import warnings
 warnings.filterwarnings("ignore", message="The parameter 'pretrained' is deprecated")
