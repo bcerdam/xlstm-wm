@@ -288,6 +288,8 @@ if __name__ == '__main__':
     codes_per_latent = 32
     epoch = 100
 
+    plot_current_loss(training_steps_per_epoch=200, epochs=500)
+
     # inspect_dataset(h5_path=h5_path)
 
     # rollout_video(h5_path=h5_path, 
