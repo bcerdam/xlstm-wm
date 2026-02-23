@@ -49,26 +49,29 @@ def rollout_video(h5_path:str, start_idx:int, steps:int, video_fps:int, output_p
         out.release()
 
 
-def plot_current_loss(new_losses: List[Dict[str, float]], training_steps_per_epoch: int, epochs: int) -> None:
+def save_loss_history(new_losses: List[Dict[str, float]]) -> None:
     keys = new_losses[0].keys()
     epoch_means = {}
     for k in keys:
         valid_vals = [d[k] for d in new_losses if d[k] is not None]
         epoch_means[k] = np.mean(valid_vals) if valid_vals else np.nan
-    
+
     output_dir = 'output/logs'
     os.makedirs(output_dir, exist_ok=True)
     history_path = os.path.join(output_dir, 'loss_history.npy')
 
-    if os.path.exists(history_path):
-        loss_history = np.load(history_path, allow_pickle=True).item()
-    else:
-        loss_history = {}
+    loss_history = np.load(history_path, allow_pickle=True).item() if os.path.exists(history_path) else {}
 
     for k, v in epoch_means.items():
         loss_history.setdefault(k, []).append(v)
 
     np.save(history_path, loss_history)
+
+
+def plot_current_loss(training_steps_per_epoch: int, epochs: int) -> None:
+    output_dir = 'output/logs'
+    history_path = os.path.join(output_dir, 'loss_history.npy')
+    loss_history = np.load(history_path, allow_pickle=True).item()
 
     current_epoch = len(loss_history['total'])
     max_x = epochs * training_steps_per_epoch

@@ -12,7 +12,7 @@ from scripts.data_related.enviroment_steps import gather_steps
 from scripts.data_related.replay_buffer import update_replay_buffer
 from scripts.data_related.atari_dataset import AtariDataset
 from scripts.utils.tensor_utils import random_replay_batch, env_n_actions
-from scripts.utils.debug_utils import plot_current_loss, save_checkpoint
+from scripts.utils.debug_utils import save_loss_history, plot_current_loss, save_checkpoint
 from scripts.models.categorical_vae.categorical_autoencoder_step import autoencoder_fwd_step
 from scripts.models.categorical_vae.encoder import CategoricalEncoder
 from scripts.models.categorical_vae.decoder import CategoricalDecoder
@@ -303,7 +303,7 @@ if __name__ == '__main__':
                                                        codes_per_latent=CODES_PER_LATENT, 
                                                        device=DEVICE, 
                                                        context_length=CONTEXT_LENGTH)
-                    episode_mean_rewards.append(np.mean(all_rewards))
+                    episode_mean_rewards.append(np.sum(all_rewards))
                 
                 all_episodes_mean_reward = np.mean(np.array(episode_mean_rewards))
             
@@ -316,11 +316,10 @@ if __name__ == '__main__':
             
             epoch_loss_history.append(step_metrics)
         
+        save_loss_history(new_losses=epoch_loss_history)
         if PLOT_TRAIN_STATUS == True:
             t0 = time.perf_counter()
-            plot_current_loss(new_losses=epoch_loss_history, 
-                            training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, 
-                            epochs=EPOCHS)
+            plot_current_loss(training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, epochs=EPOCHS)
             t_plot = time.perf_counter() - t0
 
         print(f"--- Epoch {epoch} Timing Stats ---")
