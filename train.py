@@ -54,6 +54,13 @@ if __name__ == '__main__':
     ENV_STEPS_PER_EPOCH = env_cfg['env_steps_per_epoch']
     ENV_ACTIONS = env_n_actions(ENV_NAME)
 
+    FRAMESKIP = env_cfg['frameskip']
+    NOOP_MAX = env_cfg['noop_max']
+    EPISODIC_LIFE = env_cfg['episodic_life']
+    MIN_REWARD = env_cfg['min_reward']
+    MAX_REWARD = env_cfg['max_reward']
+    OBSERVATION_HEIGHT_WIDTH = env_cfg['observation_height_width']
+
     EPOCHS = train_wm_cfg['epochs']
     TRAINING_STEPS_PER_EPOCH = train_wm_cfg['training_steps_per_epoch']
     WM_BATCH_SIZE = train_wm_cfg['wm_batch_size']
@@ -281,15 +288,21 @@ if __name__ == '__main__':
             if RUN_EVAL_EPISODES == True and training_steps_finished % 2500 == 0:
                 episode_mean_rewards = []
                 for episode in range(N_EVAL_EPISODES):
-                    _, _, all_rewards, _ = run_episode(**env_cfg, 
-                                                    actor=actor, 
-                                                    encoder=categorical_encoder, 
-                                                    tokenizer=tokenizer, 
-                                                    xlstm_dm=xlstm_dm, 
-                                                    latent_dim=LATENT_DIM, 
-                                                    codes_per_latent=CODES_PER_LATENT, 
-                                                    device=DEVICE, 
-                                                    context_length=CONTEXT_LENGTH)
+                    _, _, all_rewards, _ = run_episode(env_name=ENV_NAME, 
+                                                       frameskip=FRAMESKIP, 
+                                                       noop_max=NOOP_MAX, 
+                                                       episodic_life=EPISODIC_LIFE, 
+                                                       min_reward=MIN_REWARD, 
+                                                       max_reward=MAX_REWARD, 
+                                                       observation_height_width=OBSERVATION_HEIGHT_WIDTH, 
+                                                       actor=actor, 
+                                                       encoder=categorical_encoder, 
+                                                       tokenizer=tokenizer, 
+                                                       xlstm_dm=xlstm_dm, 
+                                                       latent_dim=LATENT_DIM, 
+                                                       codes_per_latent=CODES_PER_LATENT, 
+                                                       device=DEVICE, 
+                                                       context_length=CONTEXT_LENGTH)
                     episode_mean_rewards.append(np.mean(all_rewards))
                 
                 all_episodes_mean_reward = np.mean(np.array(episode_mean_rewards))
