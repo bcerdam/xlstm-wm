@@ -94,7 +94,7 @@ class XLSTM_DM(nn.Module):
         self.termination_head_2 = nn.Linear(in_features=embedding_dim, out_features=1)
 
 
-    def forward(self, tokens_batch:torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, tokens_batch:torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         features = self.xlstm_stack(tokens_batch)
 
         next_state_latent = self.latent_projection(features)
@@ -106,3 +106,17 @@ class XLSTM_DM(nn.Module):
         termination = self.termination_head_2(termination)
 
         return next_state_latent, reward, termination, features
+    
+
+    def step(self, tokens_batch:torch.Tensor, state:dict) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, dict]:
+        features, new_state = self.xlstm_stack.step(tokens_batch, state=state)
+
+        next_state_latent = self.latent_projection(features)
+
+        reward = self.reward_head_linear_1(features)
+        reward = self.reward_head_linear_2(reward)
+
+        termination = self.termination_head_1(features)
+        termination = self.termination_head_2(termination)
+
+        return next_state_latent, reward, termination, features, new_state
