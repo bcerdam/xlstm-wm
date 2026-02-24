@@ -185,18 +185,13 @@ if __name__ == '__main__':
                        rewards=rewards, 
                        terminations=terminations, 
                        episode_starts=episode_starts)
-        # dataloader = DataLoader(dataset=dataset, 
-        #                 batch_size=OVERALL_BATCH_SIZE_NEEDED, 
-        #                 sampler=RandomSampler(data_source=dataset, replacement=True, num_samples=OVERALL_BATCH_SIZE_NEEDED*TRAINING_STEPS_PER_EPOCH), 
-        #                 num_workers=WM_DATALOADER_NUM_WORKERS, 
-        #                 pin_memory=True,
-        #                 persistent_workers=True, 
-        #                 drop_last=True)
-
         dataloader = DataLoader(dataset=dataset, 
                         batch_size=OVERALL_BATCH_SIZE_NEEDED, 
                         sampler=RandomSampler(data_source=dataset, replacement=True, num_samples=OVERALL_BATCH_SIZE_NEEDED*TRAINING_STEPS_PER_EPOCH), 
-                        num_workers=WM_DATALOADER_NUM_WORKERS)
+                        num_workers=WM_DATALOADER_NUM_WORKERS, 
+                        pin_memory=True,
+                        persistent_workers=True, 
+                        drop_last=True)
         data_iterator = iter(dataloader)
         t_data_init = time.perf_counter() - t0
 
@@ -204,7 +199,8 @@ if __name__ == '__main__':
         for step in range(TRAINING_STEPS_PER_EPOCH):
             t0 = time.perf_counter()
             batch = next(data_iterator)
-            observations_batch, actions_batch, rewards_batch, terminations_batch = [x.to(DEVICE, non_blocking=True) for x in batch]
+            # observations_batch, actions_batch, rewards_batch, terminations_batch = [x.to(DEVICE, non_blocking=True) for x in batch]
+            observations_batch, actions_batch, rewards_batch, terminations_batch = [x.to(DEVICE) for x in batch]
             t_batch_extract += time.perf_counter() - t0
             
             t0 = time.perf_counter()
