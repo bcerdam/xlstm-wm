@@ -123,13 +123,25 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                 optimizer:torch.optim.Adam, 
                 scaler:torch.amp.GradScaler) -> Tuple:
 
+    t_dream = 0.0
+    t_tokenize = 0.0
+    t_lambda = 0.0
+    t_actor = 0.0
+    t_critic = 0.0
+    t_policy_entropy = 0.0
+    t_actor_loss = 0.0
+    t_critic_loss = 0.0
+    t_backwards = 0.0
+    t_ema = 0.0
     with torch.no_grad():
+        t0 = time.perf_counter()
         latents_sampled_batch = latents_sampled_batch.view(-1, context_length, latent_dim*codes_per_latent)
         actions_batch = actions_batch.view(-1, context_length, env_actions)
         tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions_batch)
+        t_tokenize = time.perf_counter() - t0
+        print(f'-- TOKENIZE TIME: {t_tokenize}')
 
-        # t_dream = 0.0
-        # t0 = time.perf_counter()
+        t0 = time.perf_counter()
         imagined_latent, imagined_action, imagined_reward, imagined_termination, hidden_state = dream(xlstm_dm=xlstm_dm, 
                                                                                                       tokenizer=tokenizer, 
                                                                                                       actor=actor, 
@@ -140,19 +152,10 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                                                                                                       batch_size=tokens_batch.shape[0], 
                                                                                                       env_actions=env_actions, 
                                                                                                       device=device)
-        
-        # if (imagined_reward <= -0.8).any():
-        #     print(f"Alert: Negative reward predicted. Min: {imagined_reward.min().item():.3f}")
-            
-        # if (imagined_reward >= 0.8).any():
-        #     print(f"Alert: Positive reward predicted. Max: {imagined_reward.max().item():.3f}")
-            
-        # if (imagined_termination >= 0.8).any():
-        #     print(f"Alert: Termination predicted. Max prob: {imagined_termination.max().item():.3f}")
+        t_dream = time.perf_counter() - t0
+        print(f'-- DREAM TIME: {t_dream}')
 
-        # t_dream = time.perf_counter() - t0
-        # print(f'-- DREAN TIME: {t_dream}')
-
+        t0 = time.perf_counter()
         env_state = torch.concat([imagined_latent, hidden_state], dim=-1)
 
         batch_lambda_returns, ema_state_values = recursive_lambda_returns(env_state=env_state, 
@@ -162,46 +165,61 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                                                                           lambda_p=lambda_p, 
                                                                           device=device, 
                                                                           critic=critic)
-        
+        t_lambda = time.perf_counter() - t0
+        print(f'-- LAMBDA TIME: {t_lambda}')
+    
+    t0 = time.perf_counter()
     state_values = critic.forward(state=env_state).squeeze(-1)
+    t_critic = time.perf_counter() - t0
+    print(f'-- CRITIC TIME: {t_critic}')
 
+    t0 = time.perf_counter()
     action_logits = actor.forward(state=env_state.detach())
+    t_actor = time.perf_counter() - t0
+    print(f'-- ACTOR TIME: {t_actor}')
+
+    t0 = time.perf_counter()
     policy = OneHotCategorical(logits=action_logits)
     log_policy = policy.log_prob(imagined_action.detach())
 
     entropy = policy.entropy()
+    t_policy_entropy = time.perf_counter() - t0
+    print(f'-- POLICY ENTROPY TIME: {t_policy_entropy}')
 
+    t0 = time.perf_counter()
     mean_actor_loss = actor_loss(batch_lambda_returns=batch_lambda_returns, 
                                  state_values=state_values, 
                                  log_policy=log_policy, 
                                  nabla=nabla, 
                                  entropy=entropy)
+    t_actor_loss = time.perf_counter() - t0
+    print(f'-- ACTOR LOSS TIME: {t_actor_loss}')
     
+    t0 = time.perf_counter()
     mean_critic_loss = critic_loss(batch_lambda_returns=batch_lambda_returns, 
                                    state_values=state_values, 
                                    ema_state_values=ema_state_values)
+    t_critic_loss = time.perf_counter() - t0
+    print(f'-- CRITIC LOSS TIME: {t_critic_loss}')
     
+    t0 = time.perf_counter()
     optimizer.zero_grad(set_to_none=True)
-    # scaler.scale(mean_actor_loss).backward()
-    # scaler.scale(mean_critic_loss).backward()
-    # scaler.unscale_(optimizer)
+    scaler.scale(mean_actor_loss).backward()
+    scaler.scale(mean_critic_loss).backward()
+    scaler.unscale_(optimizer)
     
-    # torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0, foreach=True)
-    # torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0, foreach=True)
+    torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0, foreach=True)
+    torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0, foreach=True)
     
-    # scaler.step(optimizer)
-    # scaler.update()
+    scaler.step(optimizer)
+    scaler.update()
+    t_backwards = time.perf_counter() - t0
+    print(f'-- BACKWARDS TIME: {t_backwards}')
     
-    # update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
-
-    # mean_imagined_reward = imagined_reward.mean().item()
-    # return mean_actor_loss.item(), mean_critic_loss.item(), mean_imagined_reward
-    mean_actor_loss.backward()
-    mean_critic_loss.backward()
-    optimizer.step()
-
+    t0 = time.perf_counter()
     update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
+    t_ema = time.perf_counter() - t0
+    print(f'-- EMA TIME: {t_ema}')
 
     mean_imagined_reward = imagined_reward.mean().item()
-    
     return mean_actor_loss.item(), mean_critic_loss.item(), mean_imagined_reward
