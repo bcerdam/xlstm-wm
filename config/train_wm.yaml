@@ -18,6 +18,6 @@ train_wm:
   proj_factor: 2.0
   act_fn: 'gelu'  
   dataloader_num_workers: 4
-  plot_train_status: False
+  plot_train_status: True
   run_eval_episodes: False
   n_eval_episodes: 20
