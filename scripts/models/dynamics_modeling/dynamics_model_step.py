@@ -24,12 +24,11 @@ def dm_fwd_step(dynamics_model:XLSTM_DM,
         time_shifted_preds = next_latents_pred[:, :-1].reshape(-1, codes_per_latent)
         time_shifted_targets = latents_batch[:, 1:].reshape(-1, codes_per_latent).detach()
 
-        rewards_loss = mse_loss(input=rewards_pred.squeeze(dim=-1), target=rewards_batch.float())
+        # rewards_loss = mse_loss(input=rewards_pred.squeeze(dim=-1), target=rewards_batch.float())
+        # terminations_loss = binary_cross_entropy_with_logits(input=terminations_pred.squeeze(dim=-1), target=terminations_batch.float())
 
-        terminations_loss = binary_cross_entropy_with_logits(input=terminations_pred.squeeze(dim=-1), target=terminations_batch.float())
-
-        # rewards_loss = mse_loss(input=rewards_pred[:, :-1].squeeze(dim=-1), target=rewards_batch[:, 1:].float())
-        # terminations_loss = binary_cross_entropy_with_logits(input=terminations_pred[:, :-1].squeeze(dim=-1), target=terminations_batch[:, 1:].float())
+        rewards_loss = mse_loss(input=rewards_pred[:, :-1].squeeze(dim=-1), target=rewards_batch[:, 1:].float())
+        terminations_loss = binary_cross_entropy_with_logits(input=terminations_pred[:, :-1].squeeze(dim=-1), target=terminations_batch[:, 1:].float())
 
         dynamics_loss = cross_entropy(input=time_shifted_preds, target=time_shifted_targets)
         

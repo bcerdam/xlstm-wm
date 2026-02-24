@@ -179,22 +179,24 @@ if __name__ == '__main__':
                                                                                     device=DEVICE, 
                                                                                     context_length=CONTEXT_LENGTH)
         total_reward = np.sum(rewards)
-        # num_episodes = np.sum(episode_starts)
-        # epoch_mean_score = total_reward / num_episodes if num_episodes > 0 else total_reward
-        epoch_mean_score = total_reward / ENV_STEPS_PER_EPOCH
 
         dataset.update(observations=observations, 
                        actions=actions, 
                        rewards=rewards, 
                        terminations=terminations, 
                        episode_starts=episode_starts)
+        # dataloader = DataLoader(dataset=dataset, 
+        #                 batch_size=OVERALL_BATCH_SIZE_NEEDED, 
+        #                 sampler=RandomSampler(data_source=dataset, replacement=True, num_samples=OVERALL_BATCH_SIZE_NEEDED*TRAINING_STEPS_PER_EPOCH), 
+        #                 num_workers=WM_DATALOADER_NUM_WORKERS, 
+        #                 pin_memory=True,
+        #                 persistent_workers=True, 
+        #                 drop_last=True)
+
         dataloader = DataLoader(dataset=dataset, 
                         batch_size=OVERALL_BATCH_SIZE_NEEDED, 
                         sampler=RandomSampler(data_source=dataset, replacement=True, num_samples=OVERALL_BATCH_SIZE_NEEDED*TRAINING_STEPS_PER_EPOCH), 
-                        num_workers=WM_DATALOADER_NUM_WORKERS, 
-                        pin_memory=True,
-                        persistent_workers=True, 
-                        drop_last=True)
+                        num_workers=WM_DATALOADER_NUM_WORKERS)
         data_iterator = iter(dataloader)
         t_data_init = time.perf_counter() - t0
 
