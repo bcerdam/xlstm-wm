@@ -189,32 +189,14 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                                    state_values=state_values, 
                                    ema_state_values=ema_state_values)
     
-    # t0 = time.perf_counter()
-    # optimizer.zero_grad(set_to_none=True)
-    # scaler.scale(mean_actor_loss).backward()
-    # scaler.scale(mean_critic_loss).backward()
-    # scaler.unscale_(optimizer)
-    
-    # torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0, foreach=True)
-    # torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0, foreach=True)
-    
-    # scaler.step(optimizer)
-    # scaler.update()
-    # t_backwards = time.perf_counter() - t0
-    # print(f'-- BACKWARDS TIME: {t_backwards}')
-    
-    # update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
-
-    # mean_imagined_reward = imagined_reward.mean().item()
-    # return mean_actor_loss.item(), mean_critic_loss.item(), mean_imagined_reward
-
     t0 = time.perf_counter()
     optimizer.zero_grad(set_to_none=True)
-    scaler.scale(mean_actor_loss + mean_critic_loss).backward()
+    scaler.scale(mean_actor_loss).backward()
+    scaler.scale(mean_critic_loss).backward()
     scaler.unscale_(optimizer)
     
-    params = [p for group in optimizer.param_groups for p in group['params']]
-    torch.nn.utils.clip_grad_norm_(params, 100.0, foreach=True)
+    torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0, foreach=True)
+    torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0, foreach=True)
     
     scaler.step(optimizer)
     scaler.update()
@@ -223,4 +205,5 @@ def train_agent(latents_sampled_batch:torch.Tensor,
     
     update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
 
-    return mean_actor_loss.item(), mean_critic_loss.item(), imagined_reward.mean().item()
+    mean_imagined_reward = imagined_reward.mean().item()
+    return mean_actor_loss.item(), mean_critic_loss.item(), mean_imagined_reward
