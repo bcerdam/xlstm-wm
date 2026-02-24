@@ -182,17 +182,26 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                                    ema_state_values=ema_state_values)
     
     optimizer.zero_grad(set_to_none=True)
-    scaler.scale(mean_actor_loss).backward()
-    scaler.scale(mean_critic_loss).backward()
-    scaler.unscale_(optimizer)
+    # scaler.scale(mean_actor_loss).backward()
+    # scaler.scale(mean_critic_loss).backward()
+    # scaler.unscale_(optimizer)
     
-    torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0, foreach=True)
-    torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0, foreach=True)
+    # torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0, foreach=True)
+    # torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0, foreach=True)
     
-    scaler.step(optimizer)
-    scaler.update()
+    # scaler.step(optimizer)
+    # scaler.update()
     
+    # update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
+
+    # mean_imagined_reward = imagined_reward.mean().item()
+    # return mean_actor_loss.item(), mean_critic_loss.item(), mean_imagined_reward
+    mean_actor_loss.backward()
+    mean_critic_loss.backward()
+    optimizer.step()
+
     update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
 
     mean_imagined_reward = imagined_reward.mean().item()
+    
     return mean_actor_loss.item(), mean_critic_loss.item(), mean_imagined_reward
