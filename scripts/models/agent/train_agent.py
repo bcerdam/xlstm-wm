@@ -123,18 +123,11 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                 optimizer:torch.optim.Adam, 
                 scaler:torch.amp.GradScaler) -> Tuple:
 
-    t_dream = 0.0
-    t_lambda = 0.0
-    t_policy = 0.0
-    t_log = 0.0
-    t_entropy = 0.0
-    t_backwards = 0.0
     with torch.no_grad():
         latents_sampled_batch = latents_sampled_batch.view(-1, context_length, latent_dim*codes_per_latent)
         actions_batch = actions_batch.view(-1, context_length, env_actions)
         tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions_batch)
 
-        t0 = time.perf_counter()
         imagined_latent, imagined_action, imagined_reward, imagined_termination, hidden_state = dream(xlstm_dm=xlstm_dm, 
                                                                                                       tokenizer=tokenizer, 
                                                                                                       actor=actor, 
@@ -145,10 +138,7 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                                                                                                       batch_size=tokens_batch.shape[0], 
                                                                                                       env_actions=env_actions, 
                                                                                                       device=device)
-        t_dream = time.perf_counter() - t0
-        print(f'-- DREAM TIME: {t_dream}')
 
-        t0 = time.perf_counter()
         env_state = torch.concat([imagined_latent, hidden_state], dim=-1)
         batch_lambda_returns, ema_state_values = recursive_lambda_returns(env_state=env_state, 
                                                                           reward=imagined_reward, 
@@ -157,27 +147,16 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                                                                           lambda_p=lambda_p, 
                                                                           device=device, 
                                                                           critic=critic)
-        t_lambda = time.perf_counter() - t0
-        print(f'-- LAMBDA TIME: {t_lambda}')
     
     state_values = critic.forward(state=env_state).squeeze(-1)
 
     action_logits = actor.forward(state=env_state.detach())
 
-    t0 = time.perf_counter()
     policy = OneHotCategorical(logits=action_logits)
-    t_policy = time.perf_counter() - t0
-    print(f'-- POLICY TIME: {t_policy}')
 
-    t0 = time.perf_counter()
     log_policy = policy.log_prob(imagined_action.detach())
-    t_log = time.perf_counter() - t0
-    print(f'-- LOG TIME: {t_log}')
 
-    t0 = time.perf_counter()
     entropy = policy.entropy()
-    t_entropy = time.perf_counter() - t0
-    print(f'-- ENTROPY TIME: {t_entropy}')
     
     mean_actor_loss = actor_loss(batch_lambda_returns=batch_lambda_returns, 
                                  state_values=state_values, 
@@ -189,7 +168,6 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                                    state_values=state_values, 
                                    ema_state_values=ema_state_values)
     
-    t0 = time.perf_counter()
     optimizer.zero_grad(set_to_none=True)
     scaler.scale(mean_actor_loss).backward()
     scaler.scale(mean_critic_loss).backward()
@@ -200,8 +178,6 @@ def train_agent(latents_sampled_batch:torch.Tensor,
     
     scaler.step(optimizer)
     scaler.update()
-    t_backwards = time.perf_counter() - t0
-    print(f'-- BACKWARDS TIME: {t_backwards}')
     
     update_ema_critic(ema_sigma=ema_sigma, critic=critic, ema_critic=ema_critic)
 
