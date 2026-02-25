@@ -160,12 +160,12 @@ if __name__ == '__main__':
 
     SCALER = torch.amp.GradScaler(enabled=True)
 
-    categorical_encoder = torch.compile(categorical_encoder)
-    categorical_decoder = torch.compile(categorical_decoder)
-    xlstm_dm = torch.compile(xlstm_dm)
-    actor = torch.compile(actor)
-    critic = torch.compile(critic)
-    ema_critic = torch.compile(ema_critic)
+    # categorical_encoder = torch.compile(categorical_encoder)
+    # categorical_decoder = torch.compile(categorical_decoder)
+    # xlstm_dm = torch.compile(xlstm_dm)
+    # actor = torch.compile(actor)
+    # critic = torch.compile(critic)
+    # ema_critic = torch.compile(ema_critic)
 
     dataset = AtariDataset(sequence_length=SEQUENCE_LENGTH)
 
@@ -226,34 +226,17 @@ if __name__ == '__main__':
                                                                               lpips_loss_fn=lpips_model)
             t_ae_fwd += time.perf_counter() - t0
             
-            # t0 = time.perf_counter()
-            # wm_latents_sampled_batch = latents_sampled_batch[:WM_BATCH_SIZE, :, :]
-            # tokens_batch = tokenizer.forward(latents_sampled_batch=wm_latents_sampled_batch.detach(), actions_batch=actions_batch[:WM_BATCH_SIZE, :, :])
-            # t_tokenizer += time.perf_counter() - t0
-
-            # t0 = time.perf_counter()
-            # rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=xlstm_dm,
-            #                                                              latents_batch=wm_latents_sampled_batch, 
-            #                                                              tokens_batch=tokens_batch, 
-            #                                                              rewards_batch=rewards_batch[:WM_BATCH_SIZE, :], 
-            #                                                              terminations_batch=terminations_batch[:WM_BATCH_SIZE, :], 
-            #                                                              batch_size=WM_BATCH_SIZE, 
-            #                                                              sequence_length=SEQUENCE_LENGTH, 
-            #                                                              latent_dim=LATENT_DIM, 
-            #                                                              codes_per_latent=CODES_PER_LATENT)
-            # t_dm_fwd += time.perf_counter() - t0
-            
             t0 = time.perf_counter()
-            wm_latents_sampled_batch = latents_sampled_batch[:WM_BATCH_SIZE, :, :].contiguous()
-            tokens_batch = tokenizer.forward(latents_sampled_batch=wm_latents_sampled_batch.detach(), actions_batch=actions_batch[:WM_BATCH_SIZE, :, :].contiguous()).contiguous()
+            wm_latents_sampled_batch = latents_sampled_batch[:WM_BATCH_SIZE, :, :]
+            tokens_batch = tokenizer.forward(latents_sampled_batch=wm_latents_sampled_batch.detach(), actions_batch=actions_batch[:WM_BATCH_SIZE, :, :])
             t_tokenizer += time.perf_counter() - t0
 
             t0 = time.perf_counter()
             rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=xlstm_dm,
                                                                          latents_batch=wm_latents_sampled_batch, 
                                                                          tokens_batch=tokens_batch, 
-                                                                         rewards_batch=rewards_batch[:WM_BATCH_SIZE, :].contiguous(), 
-                                                                         terminations_batch=terminations_batch[:WM_BATCH_SIZE, :].contiguous(), 
+                                                                         rewards_batch=rewards_batch[:WM_BATCH_SIZE, :], 
+                                                                         terminations_batch=terminations_batch[:WM_BATCH_SIZE, :], 
                                                                          batch_size=WM_BATCH_SIZE, 
                                                                          sequence_length=SEQUENCE_LENGTH, 
                                                                          latent_dim=LATENT_DIM, 
