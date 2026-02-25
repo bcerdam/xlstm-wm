@@ -112,16 +112,6 @@ if __name__ == '__main__':
     WM_DATALOADER_NUM_WORKERS = train_wm_cfg['dataloader_num_workers']
     AGENT_DATALOADER_NUM_WORKERS = train_agent_cfg['dataloader_num_workers']
 
-    print(f'Env steps per epoch: {ENV_STEPS_PER_EPOCH}')
-    print(f'Epochs: {EPOCHS}')
-    print(f'Training steps per epoch: {TRAINING_STEPS_PER_EPOCH}')
-    print(f'WM Batch Size: {WM_BATCH_SIZE}')
-    print(f'Agent Batch Size: {AGENT_BATCH_SIZE}')
-    print(f'Sequence Length: {SEQUENCE_LENGTH}')
-    print(f'Context Length: {CONTEXT_LENGTH}')
-    print(f'Overall Batch Size: {OVERALL_BATCH_SIZE_NEEDED}')
-    print(f'Embedding Dim: {EMBEDDING_DIM}')
-
     categorical_encoder = CategoricalEncoder(latent_dim=LATENT_DIM, 
                                              codes_per_latent=CODES_PER_LATENT).to(DEVICE)
     categorical_decoder = CategoricalDecoder(latent_dim=LATENT_DIM, 
@@ -353,7 +343,7 @@ if __name__ == '__main__':
         print(f"(8) Plot Loss:       {t_plot:.4f}s")
         print(f"----------------------------------")
 
-# scp bcmardini@mazinger.ing.puc.cl:/home3/bcmardini/xlstm-wm/output/run_544908/logs/loss_plot.jpeg .
+# scp bcmardini@mazinger.ing.puc.cl:/home3/bcmardini/xlstm-wm/output/run_544912/logs/loss_plot.jpeg .
 
 # sbatch job.sh --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3
 
@@ -361,8 +351,3 @@ if __name__ == '__main__':
 
 # sbatch job.sh --train_wm.epochs 500 --train_wm.training_steps_per_epoch 200 --train_wm.wm_batch_size 64 --train_wm.sequence_length 20 --train_wm.embedding_dim 256 --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 --train_agent.agent_batch_size 64 --train_agent.context_length 20 --env.env_steps_per_epoch 200
 
-
-
-
-
-# sbatch job.sh --train_wm.sequence_length 64 --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 
