@@ -226,17 +226,34 @@ if __name__ == '__main__':
                                                                               lpips_loss_fn=lpips_model)
             t_ae_fwd += time.perf_counter() - t0
             
+            # t0 = time.perf_counter()
+            # wm_latents_sampled_batch = latents_sampled_batch[:WM_BATCH_SIZE, :, :]
+            # tokens_batch = tokenizer.forward(latents_sampled_batch=wm_latents_sampled_batch.detach(), actions_batch=actions_batch[:WM_BATCH_SIZE, :, :])
+            # t_tokenizer += time.perf_counter() - t0
+
+            # t0 = time.perf_counter()
+            # rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=xlstm_dm,
+            #                                                              latents_batch=wm_latents_sampled_batch, 
+            #                                                              tokens_batch=tokens_batch, 
+            #                                                              rewards_batch=rewards_batch[:WM_BATCH_SIZE, :], 
+            #                                                              terminations_batch=terminations_batch[:WM_BATCH_SIZE, :], 
+            #                                                              batch_size=WM_BATCH_SIZE, 
+            #                                                              sequence_length=SEQUENCE_LENGTH, 
+            #                                                              latent_dim=LATENT_DIM, 
+            #                                                              codes_per_latent=CODES_PER_LATENT)
+            # t_dm_fwd += time.perf_counter() - t0
+            
             t0 = time.perf_counter()
-            wm_latents_sampled_batch = latents_sampled_batch[:WM_BATCH_SIZE, :, :]
-            tokens_batch = tokenizer.forward(latents_sampled_batch=wm_latents_sampled_batch.detach(), actions_batch=actions_batch[:WM_BATCH_SIZE, :, :])
+            wm_latents_sampled_batch = latents_sampled_batch[:WM_BATCH_SIZE, :, :].contiguous()
+            tokens_batch = tokenizer.forward(latents_sampled_batch=wm_latents_sampled_batch.detach(), actions_batch=actions_batch[:WM_BATCH_SIZE, :, :].contiguous()).contiguous()
             t_tokenizer += time.perf_counter() - t0
 
             t0 = time.perf_counter()
             rewards_loss, terminations_loss, dynamics_loss = dm_fwd_step(dynamics_model=xlstm_dm,
                                                                          latents_batch=wm_latents_sampled_batch, 
                                                                          tokens_batch=tokens_batch, 
-                                                                         rewards_batch=rewards_batch[:WM_BATCH_SIZE, :], 
-                                                                         terminations_batch=terminations_batch[:WM_BATCH_SIZE, :], 
+                                                                         rewards_batch=rewards_batch[:WM_BATCH_SIZE, :].contiguous(), 
+                                                                         terminations_batch=terminations_batch[:WM_BATCH_SIZE, :].contiguous(), 
                                                                          batch_size=WM_BATCH_SIZE, 
                                                                          sequence_length=SEQUENCE_LENGTH, 
                                                                          latent_dim=LATENT_DIM, 
@@ -342,3 +359,10 @@ if __name__ == '__main__':
         print(f"(7) Agent Train:     {t_agent_train:.4f}s")
         print(f"(8) Plot Loss:       {t_plot:.4f}s")
         print(f"----------------------------------")
+
+
+# sbatch job.sh --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3
+
+# sbatch job.sh --train_wm.epochs 1000 --train_wm.training_steps_per_epoch 400 --train_wm.wm_batch_size 32 --train_wm.sequence_length 4 --train_wm.embedding_dim 256 --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 --train_agent.agent_batch_size 32 --train_agent.context_length 4 --env.env_steps_per_epoch 100
+
+# sbatch job.sh --train_wm.epochs 500 --train_wm.training_steps_per_epoch 200 --train_wm.wm_batch_size 64 --train_wm.sequence_length 20 --train_wm.embedding_dim 256 --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 --train_agent.agent_batch_size 64 --train_agent.context_length 20 --env.env_steps_per_epoch 200
