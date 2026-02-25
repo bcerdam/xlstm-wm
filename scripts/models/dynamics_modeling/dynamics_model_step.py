@@ -15,7 +15,7 @@ def dm_fwd_step(dynamics_model:XLSTM_DM,
                 codes_per_latent:int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
     dynamics_model.train()
-    with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+    with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=True):
         next_latents_pred, rewards_pred, terminations_pred, hidden_state = dynamics_model.forward(tokens_batch=tokens_batch)
 
         next_latents_pred = next_latents_pred.view(size=(batch_size, sequence_length, latent_dim, codes_per_latent))

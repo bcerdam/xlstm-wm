@@ -7,12 +7,13 @@
 
 echo "--------------------------"
 echo "--- GPU Information ---"
-GPU_NAME=$(nvidia-smi -i $CUDA_VISIBLE_DEVICES --query-gpu=gpu_name --format=csv,noheader)
-MEM_TOTAL=$(nvidia-smi -i $CUDA_VISIBLE_DEVICES --query-gpu=memory.total --format=csv,noheader)
-MEM_USED=$(nvidia-smi -i $CUDA_VISIBLE_DEVICES --query-gpu=memory.used --format=csv,noheader)
+GPU_ID=${CUDA_VISIBLE_DEVICES:-$SLURM_JOB_GPUS}
+GPU_NAME=$(nvidia-smi --id=$GPU_ID --query-gpu=gpu_name --format=csv,noheader)
+MEM_TOTAL=$(nvidia-smi --id=$GPU_ID --query-gpu=memory.total --format=csv,noheader)
+MEM_USED=$(nvidia-smi --id=$GPU_ID --query-gpu=memory.used --format=csv,noheader)
 echo "GPU Name: $GPU_NAME"
 echo "Total Memory: $MEM_TOTAL"
-echo "Memory Used (before script): $MEM_USED"
+echo "Memory Used: $MEM_USED"
 echo "--------------------------"
 
 echo "Job started on $(date)"
