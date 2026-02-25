@@ -212,7 +212,7 @@ if __name__ == '__main__':
                         sampler=RandomSampler(data_source=dataset, replacement=True, num_samples=OVERALL_BATCH_SIZE_NEEDED*TRAINING_STEPS_PER_EPOCH), 
                         num_workers=WM_DATALOADER_NUM_WORKERS, 
                         pin_memory=True,
-                        persistent_workers=True, 
+                        persistent_workers=False, 
                         drop_last=True)
         data_iterator = iter(dataloader)
         t_data_init = time.perf_counter() - t0

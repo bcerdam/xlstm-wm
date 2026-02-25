@@ -3,6 +3,7 @@
 #SBATCH --output=output_%j.out
 #SBATCH --partition=gpus
 #SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
 
 echo "Job started on $(date)"
 
