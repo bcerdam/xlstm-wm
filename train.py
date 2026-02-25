@@ -351,3 +351,11 @@ if __name__ == '__main__':
 
 # sbatch job.sh --train_wm.epochs 500 --train_wm.training_steps_per_epoch 200 --train_wm.wm_batch_size 64 --train_wm.sequence_length 20 --train_wm.embedding_dim 256 --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 --train_agent.agent_batch_size 64 --train_agent.context_length 20 --env.env_steps_per_epoch 200
 
+
+# Breakout
+
+# sbatch job.sh --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 --env.env_name "ALE/Breakout-v5"
+
+# Alien
+
+# sbatch job.sh --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 --env.env_name "ALE/Alien-v5"
