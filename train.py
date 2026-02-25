@@ -353,7 +353,7 @@ if __name__ == '__main__':
         print(f"(8) Plot Loss:       {t_plot:.4f}s")
         print(f"----------------------------------")
 
-# scp bcmardini@mazinger.ing.puc.cl:/home3/bcmardini/xlstm-wm/output/run_544871/logs/loss_plot.jpeg .
+# scp bcmardini@mazinger.ing.puc.cl:/home3/bcmardini/xlstm-wm/output/run_544908/logs/loss_plot.jpeg .
 
 # sbatch job.sh --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3
 

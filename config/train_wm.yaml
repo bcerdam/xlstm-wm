@@ -17,7 +17,7 @@ train_wm:
   bias_init: 'power_law'
   proj_factor: 2.0
   act_fn: 'gelu'  
-  dataloader_num_workers: 4
+  dataloader_num_workers: 16
   plot_train_status: True
   run_eval_episodes: False
   n_eval_episodes: 20
