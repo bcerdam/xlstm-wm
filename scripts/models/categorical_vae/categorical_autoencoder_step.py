@@ -19,8 +19,6 @@ def autoencoder_fwd_step(categorical_encoder:CategoricalEncoder,
     categorical_encoder.train()
     categorical_decoder.train()
 
-    observations_batch = observations_batch.contiguous() # Cluster
-
     with torch.autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
         latents_batch = categorical_encoder.forward(observations_batch=observations_batch, 
                                                     batch_size=overall_batch_size_needed, 
@@ -30,24 +28,14 @@ def autoencoder_fwd_step(categorical_encoder:CategoricalEncoder,
 
         latents_sampled_batch = sample(latents_batch=latents_batch, batch_size=overall_batch_size_needed, sequence_length=sequence_length)
 
-        # wm_observations_batch =  observations_batch[:wm_batch_size, :, :, :]
-        wm_observations_batch = observations_batch[:wm_batch_size, :, :, :].contiguous()
-        wm_latents_sampled = latents_sampled_batch[:wm_batch_size, :, :].contiguous()
+        wm_observations_batch =  observations_batch[:wm_batch_size, :, :, :]
 
-        # reconstructed_observations_batch = categorical_decoder.forward(latents_batch=latents_sampled_batch[:wm_batch_size, :, :], 
-        #                                                                batch_size=wm_batch_size, 
-        #                                                                sequence_length=sequence_length, 
-        #                                                                latent_dim=latent_dim, 
-        #                                                                codes_per_latent=codes_per_latent)
-        reconstructed_observations_batch = categorical_decoder.forward(latents_batch=wm_latents_sampled, 
+        reconstructed_observations_batch = categorical_decoder.forward(latents_batch=latents_sampled_batch[:wm_batch_size, :, :], 
                                                                        batch_size=wm_batch_size, 
                                                                        sequence_length=sequence_length, 
                                                                        latent_dim=latent_dim, 
                                                                        codes_per_latent=codes_per_latent)
         
-        # reconstruction_loss = F.mse_loss(reconstructed_observations_batch, wm_observations_batch)
-        # perceptual_loss = lpips_loss_fn(wm_observations_batch.view(-1, 3, 64, 64), reconstructed_observations_batch.view(-1, 3, 64, 64)).mean()
-        # reconstruction_loss = reconstruction_loss + 0.2 * perceptual_loss
         reconstruction_loss = F.mse_loss(reconstructed_observations_batch, wm_observations_batch)
         perceptual_loss = lpips_loss_fn(wm_observations_batch.view(-1, 3, 64, 64), reconstructed_observations_batch.view(-1, 3, 64, 64)).mean()
         reconstruction_loss = reconstruction_loss + 0.2 * perceptual_loss
