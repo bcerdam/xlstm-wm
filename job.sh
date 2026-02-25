@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=xlstm-wm
 #SBATCH --output=slurm_logs/%j.out
+#SBATCH --error=slurm_logs/%j.err
 #SBATCH --partition=gpus
 #SBATCH --gres=gpu:1
 
