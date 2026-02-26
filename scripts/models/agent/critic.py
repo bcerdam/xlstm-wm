@@ -4,9 +4,9 @@ import torch.nn as nn
 
 def critic_loss(batch_lambda_returns:torch.Tensor, 
                 state_values:torch.Tensor, 
-                ema_state_values:torch.Tensor) -> float:
+                ema_lambda_returns:torch.Tensor) -> float:
     
-    loss = torch.square(state_values - batch_lambda_returns.detach()) + torch.square(state_values - ema_state_values.detach())
+    loss = torch.square(state_values - batch_lambda_returns.detach()) + torch.square(state_values - ema_lambda_returns.detach())
     return loss.mean()
 
 

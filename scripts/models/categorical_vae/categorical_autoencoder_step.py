@@ -19,7 +19,7 @@ def autoencoder_fwd_step(categorical_encoder:CategoricalEncoder,
     categorical_encoder.train()
     categorical_decoder.train()
 
-    with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=True):
+    with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
         latents_batch = categorical_encoder.forward(observations_batch=observations_batch, 
                                                     batch_size=overall_batch_size_needed, 
                                                     sequence_length=sequence_length, 

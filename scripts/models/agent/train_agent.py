@@ -123,50 +123,61 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                 optimizer:torch.optim.Adam, 
                 scaler:torch.amp.GradScaler) -> Tuple:
 
-    with torch.no_grad():
-        latents_sampled_batch = latents_sampled_batch.view(-1, context_length, latent_dim*codes_per_latent)
-        actions_batch = actions_batch.view(-1, context_length, env_actions)
-        tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions_batch)
+    with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+        with torch.no_grad():
+            latents_sampled_batch = latents_sampled_batch.view(-1, context_length, latent_dim*codes_per_latent)
+            actions_batch = actions_batch.view(-1, context_length, env_actions)
+            tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions_batch)
 
-        imagined_latent, imagined_action, imagined_reward, imagined_termination, hidden_state = dream(xlstm_dm=xlstm_dm, 
-                                                                                                      tokenizer=tokenizer, 
-                                                                                                      actor=actor, 
-                                                                                                      tokens=tokens_batch, 
-                                                                                                      imagination_horizon=imagination_horizon, 
-                                                                                                      latent_dim=latent_dim, 
-                                                                                                      codes_per_latent=codes_per_latent, 
-                                                                                                      batch_size=tokens_batch.shape[0], 
-                                                                                                      env_actions=env_actions, 
-                                                                                                      device=device)
+            imagined_latent, imagined_action, imagined_reward, imagined_termination, hidden_state = dream(xlstm_dm=xlstm_dm, 
+                                                                                                        tokenizer=tokenizer, 
+                                                                                                        actor=actor, 
+                                                                                                        tokens=tokens_batch, 
+                                                                                                        imagination_horizon=imagination_horizon, 
+                                                                                                        latent_dim=latent_dim, 
+                                                                                                        codes_per_latent=codes_per_latent, 
+                                                                                                        batch_size=tokens_batch.shape[0], 
+                                                                                                        env_actions=env_actions, 
+                                                                                                        device=device)
 
-        env_state = torch.concat([imagined_latent, hidden_state], dim=-1)
-        batch_lambda_returns, ema_state_values = recursive_lambda_returns(env_state=env_state, 
-                                                                          reward=imagined_reward, 
-                                                                          termination=imagined_termination, 
-                                                                          gamma=gamma, 
-                                                                          lambda_p=lambda_p, 
-                                                                          device=device, 
-                                                                          critic=critic)
+            env_state = torch.concat([imagined_latent, hidden_state], dim=-1)
+            regular_lambda_returns, _ = recursive_lambda_returns(env_state=env_state, 
+                                                                            reward=imagined_reward, 
+                                                                            termination=imagined_termination, 
+                                                                            gamma=gamma, 
+                                                                            lambda_p=lambda_p, 
+                                                                            device=device, 
+                                                                            critic=critic)
+            
+            ema_lambda_returns, _ = recursive_lambda_returns(env_state=env_state, 
+                                                            reward=imagined_reward, 
+                                                            termination=imagined_termination, 
+                                                            gamma=gamma, 
+                                                            lambda_p=lambda_p, 
+                                                            device=device, 
+                                                            critic=ema_critic)
     
-    state_values = critic.forward(state=env_state).squeeze(-1)
+        state_values = critic.forward(state=env_state).squeeze(-1)
 
-    action_logits = actor.forward(state=env_state.detach())
+        action_logits = actor.forward(state=env_state.detach())
 
-    policy = OneHotCategorical(logits=action_logits)
+        policy = OneHotCategorical(logits=action_logits)
 
-    log_policy = policy.log_prob(imagined_action.detach())
+        log_policy = policy.log_prob(imagined_action.detach())
 
-    entropy = policy.entropy()
-    
-    mean_actor_loss = actor_loss(batch_lambda_returns=batch_lambda_returns, 
-                                 state_values=state_values, 
-                                 log_policy=log_policy, 
-                                 nabla=nabla, 
-                                 entropy=entropy)
-    
-    mean_critic_loss = critic_loss(batch_lambda_returns=batch_lambda_returns, 
-                                   state_values=state_values, 
-                                   ema_state_values=ema_state_values)
+        entropy = policy.entropy()
+        
+        mean_actor_loss = actor_loss(batch_lambda_returns=regular_lambda_returns, 
+                                     state_values=state_values, 
+                                     log_policy=log_policy, 
+                                     nabla=nabla, 
+                                     entropy=entropy,
+                                     lowerbound_ema=actor.lowerbound_ema,
+                                     upperbound_ema=actor.upperbound_ema)
+        
+        mean_critic_loss = critic_loss(batch_lambda_returns=regular_lambda_returns, 
+                                       state_values=state_values, 
+                                       ema_lambda_returns=ema_lambda_returns)
     
     optimizer.zero_grad(set_to_none=True)
     scaler.scale(mean_actor_loss).backward()
