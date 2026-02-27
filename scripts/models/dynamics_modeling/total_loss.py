@@ -16,23 +16,19 @@ def total_loss_step(reconstruction_loss:torch.Tensor,
                     dynamics_model:XLSTM_DM, 
                     optimizer:torch.optim.Optimizer, 
                     scaler:torch.amp.grad_scaler) -> torch.Tensor:
-            
+    
     sum_of_losses = (reconstruction_loss+reward_loss+termination_loss+dynamics_loss)
 
     optimizer.zero_grad(set_to_none=True)
     scaler.scale(sum_of_losses).backward()
     scaler.unscale_(optimizer)
     
-    all_parameters = itertools.chain(
-        categorical_encoder.parameters(),
-        categorical_decoder.parameters(),
-        tokenizer.parameters(),
-        dynamics_model.parameters()
-    )
-    torch.nn.utils.clip_grad_norm_(all_parameters, 1000.0, foreach=True)
+    torch.nn.utils.clip_grad_norm_(categorical_encoder.parameters(), 1000.0)
+    torch.nn.utils.clip_grad_norm_(categorical_decoder.parameters(), 1000.0)
+    torch.nn.utils.clip_grad_norm_(tokenizer.parameters(), 1000.0)
+    torch.nn.utils.clip_grad_norm_(dynamics_model.parameters(), 1000.0)
     
     scaler.step(optimizer)
     scaler.update()
 
     return sum_of_losses
-    

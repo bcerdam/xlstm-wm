@@ -181,8 +181,8 @@ def train_agent(latents_sampled_batch:torch.Tensor,
     scaler.scale(mean_critic_loss).backward()
     scaler.unscale_(optimizer)
     
-    torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0, foreach=True)
-    torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0, foreach=True)
+    torch.nn.utils.clip_grad_norm_(actor.parameters(), 100.0)
+    torch.nn.utils.clip_grad_norm_(critic.parameters(), 100.0)
     
     scaler.step(optimizer)
     scaler.update()
