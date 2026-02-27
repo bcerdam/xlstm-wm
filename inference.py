@@ -68,7 +68,7 @@ def collect_steps(env_name:str,
     with torch.no_grad():
         while termination == False:
             if i == timestep_idx:
-                start_saving == True
+                start_saving = True
 
             if start_saving == True:
                 all_observations.append(observation)
@@ -97,7 +97,6 @@ def collect_steps(env_name:str,
             tensor_action_array = torch.from_numpy(action_array).unsqueeze(0).unsqueeze(0).to(device=device)
             if start_saving == True:
                 all_actions.append(action_array)
-                ctx_counter += 1
 
             token = tokenizer.forward(latents_sampled_batch=sampled_latent, actions_batch=tensor_action_array)
 
@@ -114,8 +113,10 @@ def collect_steps(env_name:str,
             observation, reward, termination, truncated, info = env.step(action)
             observation = reshape_observation(normalize_observation(observation=observation))
 
-            all_rewards.append(reward)
-            all_terminations.append(termination)
+            if start_saving == True:
+                all_rewards.append(reward)
+                all_terminations.append(termination)
+
         
             if termination or truncated:
                 observation, info = env.reset()
@@ -129,8 +130,10 @@ def collect_steps(env_name:str,
 
     observations = torch.from_numpy(np.stack(all_observations)).unsqueeze(0).repeat(batch_size, 1, 1, 1, 1).to(device)
     actions = torch.from_numpy(np.stack(all_actions)).unsqueeze(0).repeat(batch_size, 1, 1).to(device)
-    
-    return observations, actions
+    rewards = torch.from_numpy(np.stack(all_rewards)).unsqueeze(0).repeat(batch_size, 1).to(device)
+    terminations = torch.from_numpy(np.stack(all_terminations)).unsqueeze(0).repeat(batch_size, 1).to(device)
+
+    return observations, actions, rewards, terminations
 
 
 def dream(xlstm_dm:XLSTM_DM, 
@@ -275,24 +278,25 @@ if __name__ == '__main__':
     xlstm_dm.eval()
     actor.eval()
     
-    observations, actions = collect_steps(env_name=ENV_NAME, 
-                                          frameskip=FRAMESKIP, 
-                                          noop_max=NOOP_MAX, 
-                                          observation_height_width=OBSERVATION_HEIGHT_WIDTH, 
-                                          episodic_life=EPISODIC_LIFE, 
-                                          min_reward=MIN_REWARD, 
-                                          max_reward=MAX_REWARD, 
-                                          context_length=CONTEXT_LENGTH, 
-                                          env_actions=ENV_ACTIONS, 
-                                          device=DEVICE, 
-                                          batch_size=BATCH_SIZE, 
-                                          actor=actor, 
-                                          latent_dim=LATENT_DIM, 
-                                          codes_per_latent=CODES_PER_LATENT, 
-                                          imagination_horizon=IMAGINATION_HORIZON)
+    observations, actions, rewards, terminations = collect_steps(env_name=ENV_NAME, 
+                                                                frameskip=FRAMESKIP, 
+                                                                noop_max=NOOP_MAX, 
+                                                                observation_height_width=OBSERVATION_HEIGHT_WIDTH, 
+                                                                episodic_life=EPISODIC_LIFE, 
+                                                                min_reward=MIN_REWARD, 
+                                                                max_reward=MAX_REWARD, 
+                                                                context_length=CONTEXT_LENGTH, 
+                                                                env_actions=ENV_ACTIONS, 
+                                                                device=DEVICE, 
+                                                                batch_size=BATCH_SIZE, 
+                                                                actor=actor, 
+                                                                latent_dim=LATENT_DIM, 
+                                                                codes_per_latent=CODES_PER_LATENT, 
+                                                                imagination_horizon=IMAGINATION_HORIZON, 
+                                                                timestep_idx=inference_cfg['timestep_idx'])
 
     with torch.no_grad():
-        latents = encoder.forward(observations_batch=observations, 
+        latents = encoder.forward(observations_batch=observations[:, :CONTEXT_LENGTH], 
                                   batch_size=BATCH_SIZE, 
                                   sequence_length=CONTEXT_LENGTH, 
                                   latent_dim=LATENT_DIM, 
@@ -300,7 +304,7 @@ if __name__ == '__main__':
         
         latents_sampled_batch = sample(latents, batch_size=BATCH_SIZE, sequence_length=CONTEXT_LENGTH)
 
-        tokens = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions)
+        tokens = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions[:, :CONTEXT_LENGTH])
 
         imagined_frames, _, imagined_rewards, imagined_terminations, _ = dream(xlstm_dm=xlstm_dm, 
                                                                                decoder=decoder,
@@ -313,9 +317,13 @@ if __name__ == '__main__':
                                                                                env_actions=ENV_ACTIONS, 
                                                                                device=DEVICE, 
                                                                                actor=actor)
+    
         
-        save_dream_video(imagined_frames=imagined_frames, 
-                         imagined_rewards=imagined_rewards, 
+        save_dream_video(real_frames=torch.unbind(observations[:, CONTEXT_LENGTH:].cpu(), dim=1),
+                         imagined_frames=imagined_frames, 
+                         real_rewards=torch.unbind(rewards[:, CONTEXT_LENGTH:].cpu(), dim=1),
+                         imagined_rewards=imagined_rewards,
+                         real_terminations=torch.unbind(terminations[:, CONTEXT_LENGTH:].cpu(), dim=1),
                          imagined_terminations=imagined_terminations, 
                          video_path=VIDEO_PATH, 
                          fps=FPS)

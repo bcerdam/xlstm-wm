@@ -235,42 +235,96 @@ def visualize_reconstruction(dataset_path:str,
 
 #     out.release()
 
+# import os
+# import cv2
+# import torch
+# import numpy as np
+# from typing import List, Union
+
+# def save_dream_video(imagined_frames: List[np.ndarray], 
+#                      imagined_rewards: List[Union[torch.Tensor, np.ndarray]], 
+#                      imagined_terminations: List[Union[torch.Tensor, np.ndarray]], 
+#                      video_path: str, 
+#                      fps: int) -> None:
+#     os.makedirs(os.path.dirname(video_path), exist_ok=True)
+
+#     _, _, orig_height, orig_width = imagined_frames[0].shape
+#     scale = 4
+#     height, width = orig_height * scale, orig_width * scale
+
+#     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+#     out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+
+#     for frame, reward, term in zip(imagined_frames, imagined_rewards, imagined_terminations):
+#         frame = frame[0]
+#         frame = np.transpose(frame, (1, 2, 0))
+#         frame = (frame + 1) * 127.5
+#         frame = np.clip(frame, 0, 255).astype(np.uint8)
+        
+#         frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) if frame.shape[-1] == 1 else cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+#         frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_NEAREST)
+
+#         r_val = reward[0].item() if hasattr(reward[0], 'item') else float(reward[0])
+#         t_val = term[0].item() if hasattr(term[0], 'item') else float(term[0])
+
+#         cv2.putText(frame, f"R: {r_val:.3f}", (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
+#         cv2.putText(frame, f"T: {t_val:.3f}", (5, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+
+#         out.write(frame)
+
+#     out.release()
+
 import os
 import cv2
 import torch
 import numpy as np
 from typing import List, Union
 
-def save_dream_video(imagined_frames: List[np.ndarray], 
-                     imagined_rewards: List[Union[torch.Tensor, np.ndarray]], 
-                     imagined_terminations: List[Union[torch.Tensor, np.ndarray]], 
+def save_dream_video(real_frames: List[np.ndarray], # CHANGED
+                     imagined_frames: List[np.ndarray], 
+                     real_rewards: List[Union[torch.Tensor, np.ndarray]], # CHANGED
+                     imagined_rewards: List[Union[torch.Tensor, np.ndarray]], # CHANGED
+                     real_terminations: List[Union[torch.Tensor, np.ndarray]], # CHANGED
+                     imagined_terminations: List[Union[torch.Tensor, np.ndarray]], # CHANGED
                      video_path: str, 
                      fps: int) -> None:
+    
     os.makedirs(os.path.dirname(video_path), exist_ok=True)
 
     _, _, orig_height, orig_width = imagined_frames[0].shape
     scale = 4
     height, width = orig_height * scale, orig_width * scale
+    double_width = width * 2 # CHANGED
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+    out = cv2.VideoWriter(video_path, fourcc, fps, (double_width, height)) # CHANGED
 
-    for frame, reward, term in zip(imagined_frames, imagined_rewards, imagined_terminations):
-        frame = frame[0]
-        frame = np.transpose(frame, (1, 2, 0))
-        frame = (frame + 1) * 127.5
-        frame = np.clip(frame, 0, 255).astype(np.uint8)
+    for r_f, i_f, r_rew, i_rew, r_term, i_term in zip(real_frames, imagined_frames, real_rewards, imagined_rewards, real_terminations, imagined_terminations): # CHANGED
         
-        frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) if frame.shape[-1] == 1 else cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_NEAREST)
+        r_img = np.transpose(r_f[0], (1, 2, 0)) # CHANGED
+        r_img = np.clip((r_img + 1) * 127.5, 0, 255).astype(np.uint8) # CHANGED
+        r_img = cv2.cvtColor(r_img, cv2.COLOR_GRAY2BGR) if r_img.shape[-1] == 1 else cv2.cvtColor(r_img, cv2.COLOR_RGB2BGR) # CHANGED
+        r_img = cv2.resize(r_img, (width, height), interpolation=cv2.INTER_NEAREST) # CHANGED
 
-        r_val = reward[0].item() if hasattr(reward[0], 'item') else float(reward[0])
-        t_val = term[0].item() if hasattr(term[0], 'item') else float(term[0])
+        i_img = np.transpose(i_f[0], (1, 2, 0))
+        i_img = np.clip((i_img + 1) * 127.5, 0, 255).astype(np.uint8)
+        i_img = cv2.cvtColor(i_img, cv2.COLOR_GRAY2BGR) if i_img.shape[-1] == 1 else cv2.cvtColor(i_img, cv2.COLOR_RGB2BGR)
+        i_img = cv2.resize(i_img, (width, height), interpolation=cv2.INTER_NEAREST)
 
-        cv2.putText(frame, f"R: {r_val:.3f}", (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
-        cv2.putText(frame, f"T: {t_val:.3f}", (5, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+        r_r_val = r_rew[0].item() if hasattr(r_rew[0], 'item') else float(r_rew[0]) # CHANGED
+        r_t_val = r_term[0].item() if hasattr(r_term[0], 'item') else float(r_term[0]) # CHANGED
+        
+        i_r_val = i_rew[0].item() if hasattr(i_rew[0], 'item') else float(i_rew[0])
+        i_t_val = i_term[0].item() if hasattr(i_term[0], 'item') else float(i_term[0])
 
-        out.write(frame)
+        cv2.putText(r_img, f"Real R: {r_r_val:.3f}", (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA) # CHANGED
+        cv2.putText(r_img, f"Real T: {r_t_val:.3f}", (5, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA) # CHANGED
+
+        cv2.putText(i_img, f"Imag R: {i_r_val:.3f}", (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.putText(i_img, f"Imag T: {i_t_val:.3f}", (5, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+
+        combined_frame = np.concatenate((r_img, i_img), axis=1) # CHANGED
+        out.write(combined_frame)
 
     out.release()
 
