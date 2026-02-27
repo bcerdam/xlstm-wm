@@ -35,15 +35,27 @@ if __name__ == '__main__':
     parser.add_argument('--train_wm_cfg', default='config/train_wm.yaml', type=str, help='Path to train wm parameters .yaml file')
     parser.add_argument('--train_agent_cfg', default='config/train_agent.yaml', type=str, help='Path to train agent parameters .yaml file')
     parser.add_argument('--env_cfg', default='config/env.yaml', type=str, help='Path to env parameters .yaml file')
-    args = parser.parse_args()
+    parser.add_argument('--run_dir', default='output/run', type=str) # Cluster
+    args, unknown = parser.parse_known_args() # Cluster
+
+    RUN_DIR = args.run_dir # Cluster
+    os.makedirs(RUN_DIR, exist_ok=True) # Cluster
 
     with open(args.train_wm_cfg, 'r') as file_train_wm, open(args.env_cfg, 'r') as file_env, open(args.train_agent_cfg, 'r') as file_train_agent:
         train_wm_cfg = yaml.safe_load(file_train_wm)['train_wm']
         train_agent_cfg = yaml.safe_load(file_train_agent)['train_agent']
         env_cfg = yaml.safe_load(file_env)['env']
 
-    if os.path.exists('output/logs'):
-        shutil.rmtree('output/logs')
+    # Cluster
+    configs = {'train_wm': train_wm_cfg, 'train_agent': train_agent_cfg, 'env': env_cfg}
+    i = 0
+    while i < len(unknown):
+        key = unknown[i].lstrip('--')
+        val = yaml.safe_load(unknown[i+1])
+        cfg_name, param_name = key.split('.')
+        configs[cfg_name][param_name] = val
+        i += 2
+    # Cluster
 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     PLOT_TRAIN_STATUS = train_wm_cfg['plot_train_status']
@@ -150,7 +162,7 @@ if __name__ == '__main__':
 
     categorical_encoder = torch.compile(categorical_encoder)
     categorical_decoder = torch.compile(categorical_decoder)
-    xlstm_dm = torch.compile(xlstm_dm)
+    # xlstm_dm = torch.compile(xlstm_dm)
     actor = torch.compile(actor)
     critic = torch.compile(critic)
     ema_critic = torch.compile(ema_critic)
@@ -190,7 +202,7 @@ if __name__ == '__main__':
                         sampler=RandomSampler(data_source=dataset, replacement=True, num_samples=OVERALL_BATCH_SIZE_NEEDED*TRAINING_STEPS_PER_EPOCH), 
                         num_workers=WM_DATALOADER_NUM_WORKERS, 
                         pin_memory=True,
-                        persistent_workers=True, 
+                        persistent_workers=False, 
                         drop_last=True)
         data_iterator = iter(dataloader)
         t_data_init = time.perf_counter() - t0
@@ -279,7 +291,8 @@ if __name__ == '__main__':
                                 wm_optimizer=OPTIMIZER, 
                                 agent_optimizer=AGENT_OPTIMIZER, 
                                 scaler=SCALER,
-                                step=training_steps_finished)
+                                step=training_steps_finished, 
+                                path=os.path.join(RUN_DIR, "checkpoints")) # Cluster
                 
             all_episodes_mean_reward = None
             if RUN_EVAL_EPISODES == True and training_steps_finished % 2500 == 0:
@@ -313,10 +326,10 @@ if __name__ == '__main__':
             
             epoch_loss_history.append(step_metrics)
         
-        save_loss_history(new_losses=epoch_loss_history)
+        save_loss_history(new_losses=epoch_loss_history, output_dir=os.path.join(RUN_DIR, "logs")) # Cluster
         if PLOT_TRAIN_STATUS == True:
             t0 = time.perf_counter()
-            plot_current_loss(training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, epochs=EPOCHS)
+            plot_current_loss(training_steps_per_epoch=TRAINING_STEPS_PER_EPOCH, epochs=EPOCHS, output_dir=os.path.join(RUN_DIR, "logs")) # Cluster
             t_plot = time.perf_counter() - t0
 
         print(f"--- Epoch {epoch} Timing Stats ---")
@@ -329,3 +342,4 @@ if __name__ == '__main__':
         print(f"(7) Agent Train:     {t_agent_train:.4f}s")
         print(f"(8) Plot Loss:       {t_plot:.4f}s")
         print(f"----------------------------------")
+

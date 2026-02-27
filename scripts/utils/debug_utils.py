@@ -49,16 +49,15 @@ def rollout_video(h5_path:str, start_idx:int, steps:int, video_fps:int, output_p
         out.release()
 
 
-def save_loss_history(new_losses: List[Dict[str, float]]) -> None:
+def save_loss_history(new_losses: List[Dict[str, float]], output_dir: str) -> None: # Cluster
     keys = new_losses[0].keys()
     epoch_means = {}
     for k in keys:
         valid_vals = [d[k] for d in new_losses if d[k] is not None]
         epoch_means[k] = np.mean(valid_vals) if valid_vals else np.nan
 
-    output_dir = 'output/logs'
-    os.makedirs(output_dir, exist_ok=True)
-    history_path = os.path.join(output_dir, 'loss_history.npy')
+    os.makedirs(output_dir, exist_ok=True) # Cluster
+    history_path = os.path.join(output_dir, 'loss_history.npy') # Cluster
 
     loss_history = np.load(history_path, allow_pickle=True).item() if os.path.exists(history_path) else {}
 
@@ -68,10 +67,9 @@ def save_loss_history(new_losses: List[Dict[str, float]]) -> None:
     np.save(history_path, loss_history)
 
 
-def plot_current_loss(training_steps_per_epoch: int, epochs: int) -> None:
-    output_dir = 'output/logs'
-    history_path = os.path.join(output_dir, 'loss_history.npy')
-    loss_history = np.load(history_path, allow_pickle=True).item()
+def plot_current_loss(training_steps_per_epoch: int, epochs: int, output_dir: str) -> None: # Cluster
+    history_path = os.path.join(output_dir, 'loss_history.npy') # Cluster
+    loss_history = np.load(history_path, allow_pickle=True).item() # Cluster
 
     current_epoch = len(loss_history['total'])
     max_x = epochs * training_steps_per_epoch
@@ -125,7 +123,7 @@ def plot_current_loss(training_steps_per_epoch: int, epochs: int) -> None:
         ax.tick_params(axis='both', which='major', labelsize=5)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'loss_plot.jpeg'), format='jpeg', dpi=200, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'loss_plot.jpeg'), format='jpeg', dpi=200, bbox_inches='tight') # Cluster
     plt.close()
 
 
@@ -277,18 +275,18 @@ def save_dream_video(imagined_frames: List[np.ndarray],
     out.release()
 
 
-if __name__ == '__main__':
-    h5_path = 'data/replay_buffer.h5'
-    start_idx = 0
-    steps = 200
-    video_fps = 15
-    output_path = 'output/videos/rollout/rollout_video_1.mp4'
-    sequence_length = 64
-    latent_dim = 32
-    codes_per_latent = 32
-    epoch = 100
+# if __name__ == '__main__':
+#     h5_path = 'data/replay_buffer.h5'
+#     start_idx = 0
+#     steps = 200
+#     video_fps = 15
+#     output_path = 'output/videos/rollout/rollout_video_1.mp4'
+#     sequence_length = 64
+#     latent_dim = 32
+#     codes_per_latent = 32
+#     epoch = 100
 
-    plot_current_loss(training_steps_per_epoch=200, epochs=500)
+#     plot_current_loss(training_steps_per_epoch=200, epochs=500)
 
     # inspect_dataset(h5_path=h5_path)
 

@@ -129,25 +129,33 @@ def train_agent(latents_sampled_batch:torch.Tensor,
         tokens_batch = tokenizer.forward(latents_sampled_batch=latents_sampled_batch, actions_batch=actions_batch)
 
         imagined_latent, imagined_action, imagined_reward, imagined_termination, hidden_state = dream(xlstm_dm=xlstm_dm, 
-                                                                                                      tokenizer=tokenizer, 
-                                                                                                      actor=actor, 
-                                                                                                      tokens=tokens_batch, 
-                                                                                                      imagination_horizon=imagination_horizon, 
-                                                                                                      latent_dim=latent_dim, 
-                                                                                                      codes_per_latent=codes_per_latent, 
-                                                                                                      batch_size=tokens_batch.shape[0], 
-                                                                                                      env_actions=env_actions, 
-                                                                                                      device=device)
+                                                                                                    tokenizer=tokenizer, 
+                                                                                                    actor=actor, 
+                                                                                                    tokens=tokens_batch, 
+                                                                                                    imagination_horizon=imagination_horizon, 
+                                                                                                    latent_dim=latent_dim, 
+                                                                                                    codes_per_latent=codes_per_latent, 
+                                                                                                    batch_size=tokens_batch.shape[0], 
+                                                                                                    env_actions=env_actions, 
+                                                                                                    device=device)
 
         env_state = torch.concat([imagined_latent, hidden_state], dim=-1)
-        batch_lambda_returns, ema_state_values = recursive_lambda_returns(env_state=env_state, 
-                                                                          reward=imagined_reward, 
-                                                                          termination=imagined_termination, 
-                                                                          gamma=gamma, 
-                                                                          lambda_p=lambda_p, 
-                                                                          device=device, 
-                                                                          critic=critic)
-    
+        regular_lambda_returns, _ = recursive_lambda_returns(env_state=env_state, 
+                                                                        reward=imagined_reward, 
+                                                                        termination=imagined_termination, 
+                                                                        gamma=gamma, 
+                                                                        lambda_p=lambda_p, 
+                                                                        device=device, 
+                                                                        critic=critic)
+        
+        ema_lambda_returns, _ = recursive_lambda_returns(env_state=env_state, 
+                                                        reward=imagined_reward, 
+                                                        termination=imagined_termination, 
+                                                        gamma=gamma, 
+                                                        lambda_p=lambda_p, 
+                                                        device=device, 
+                                                        critic=ema_critic)
+
     state_values = critic.forward(state=env_state).squeeze(-1)
 
     action_logits = actor.forward(state=env_state.detach())
@@ -158,15 +166,15 @@ def train_agent(latents_sampled_batch:torch.Tensor,
 
     entropy = policy.entropy()
     
-    mean_actor_loss = actor_loss(batch_lambda_returns=batch_lambda_returns, 
-                                 state_values=state_values, 
-                                 log_policy=log_policy, 
-                                 nabla=nabla, 
-                                 entropy=entropy)
+    mean_actor_loss = actor_loss(batch_lambda_returns=regular_lambda_returns, 
+                                    state_values=state_values, 
+                                    log_policy=log_policy, 
+                                    nabla=nabla, 
+                                    entropy=entropy)
     
-    mean_critic_loss = critic_loss(batch_lambda_returns=batch_lambda_returns, 
-                                   state_values=state_values, 
-                                   ema_state_values=ema_state_values)
+    mean_critic_loss = critic_loss(batch_lambda_returns=regular_lambda_returns, 
+                                    state_values=state_values, 
+                                    ema_lambda_returns=ema_lambda_returns)
     
     optimizer.zero_grad(set_to_none=True)
     scaler.scale(mean_actor_loss).backward()
