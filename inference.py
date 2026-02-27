@@ -30,7 +30,12 @@ def collect_steps(env_name:str,
                   context_length:int, 
                   env_actions:int, 
                   device:str, 
-                  batch_size:int) -> Tuple[torch.Tensor, torch.Tensor]:
+                  batch_size:int, 
+                  actor:Actor, 
+                  latent_dim:int, 
+                  codes_per_latent:int,
+                  timestep_idx:int, 
+                  imagination_horizon:int) -> Tuple[torch.Tensor, torch.Tensor]:
     
     gym.register_envs(ale_py)
     env = gym.make(id=env_name, frameskip=1)
@@ -48,23 +53,77 @@ def collect_steps(env_name:str,
     all_terminations = [] 
     all_episode_starts = []
 
+    context_tokens = None
+    embedding_dim = tokenizer.embedding_dim 
+    current_hidden_state = torch.zeros(1, 1, embedding_dim, device=device)
+
     observation, info = env.reset()
     observation = reshape_observation(normalize_observation(observation=observation))
     episode_start = True
-    for _ in range(context_length):
-        all_observations.append(observation)
-        
-        act = env.action_space.sample()
-        act_one_hot = np.zeros(env_actions, dtype=np.float32)
-        act_one_hot[act] = 1.0
-        
-        all_actions.append(act_one_hot)
-        
-        obs, _, terminated, truncated, _ = env.step(act)
-        if terminated or truncated:
-            obs, _ = env.reset()
+    first_iter = True
+    start_saving = False
+    ctx_counter = 0
+    i = 0
+    termination = False
+    with torch.no_grad():
+        while termination == False:
+            if i == timestep_idx:
+                start_saving == True
 
-        observation = reshape_observation(normalize_observation(observation=obs))
+            if start_saving == True:
+                all_observations.append(observation)
+                ctx_counter += 1
+            
+            observation_tensor = torch.from_numpy(observation).unsqueeze(0).unsqueeze(0).to(device=device)
+            latent = encoder.forward(observations_batch=observation_tensor, 
+                                    batch_size=1, 
+                                    sequence_length=1, 
+                                    latent_dim=latent_dim, 
+                                    codes_per_latent=codes_per_latent)
+            sampled_latent = sample(latents_batch=latent, batch_size=1, sequence_length=1)
+
+            action_array = np.zeros(env.action_space.n, dtype=np.float32)
+            env_state = torch.concat([sampled_latent, current_hidden_state], dim=-1)
+
+            if first_iter == True:
+                action = env.action_space.sample()
+                first_iter = False
+            else:
+                action_logits = actor(state=env_state)
+                policy = OneHotCategorical(logits=action_logits)
+                action = torch.argmax(policy.sample()).item()
+
+            action_array[action] = 1.0
+            tensor_action_array = torch.from_numpy(action_array).unsqueeze(0).unsqueeze(0).to(device=device)
+            if start_saving == True:
+                all_actions.append(action_array)
+                ctx_counter += 1
+
+            token = tokenizer.forward(latents_sampled_batch=sampled_latent, actions_batch=tensor_action_array)
+
+            if context_tokens is None:
+                context_tokens = token
+            else:
+                context_tokens = torch.cat([context_tokens, token], dim=1)
+                if context_tokens.shape[1] > context_length:
+                    context_tokens = context_tokens[:, -context_length:, :]
+
+            _, _, _, hidden_state = xlstm_dm.forward(tokens_batch=context_tokens)
+            current_hidden_state = hidden_state[:, -1:, :]
+
+            observation, reward, termination, truncated, info = env.step(action)
+            observation = reshape_observation(normalize_observation(observation=observation))
+
+            all_rewards.append(reward)
+            all_terminations.append(termination)
+        
+            if termination or truncated:
+                observation, info = env.reset()
+
+            if ctx_counter == (context_length+imagination_horizon):
+                break
+
+            i += 1
             
     env.close()
 
@@ -226,7 +285,11 @@ if __name__ == '__main__':
                                           context_length=CONTEXT_LENGTH, 
                                           env_actions=ENV_ACTIONS, 
                                           device=DEVICE, 
-                                          batch_size=BATCH_SIZE)
+                                          batch_size=BATCH_SIZE, 
+                                          actor=actor, 
+                                          latent_dim=LATENT_DIM, 
+                                          codes_per_latent=CODES_PER_LATENT, 
+                                          imagination_horizon=IMAGINATION_HORIZON)
 
     with torch.no_grad():
         latents = encoder.forward(observations_batch=observations, 
@@ -251,7 +314,6 @@ if __name__ == '__main__':
                                                                                device=DEVICE, 
                                                                                actor=actor)
         
-        # save_dream_video(imagined_frames=imagined_frames, video_path=VIDEO_PATH, fps=FPS)
         save_dream_video(imagined_frames=imagined_frames, 
                          imagined_rewards=imagined_rewards, 
                          imagined_terminations=imagined_terminations, 
