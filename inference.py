@@ -96,7 +96,7 @@ def dream(xlstm_dm:XLSTM_DM,
     for step in range(imagination_horizon):
         latent, reward, termination, hidden_state = xlstm_dm.forward(tokens_batch=tokens)
         imagined_rewards.append(reward[:, -1, :])
-        imagined_terminations.append(termination[:, -1, :])
+        imagined_terminations.append((termination[:, -1, :] > 0.0).float())
         hidden_states.append(hidden_state[:, -1, :])
 
         next_latent = latent[:, -1:, :].view(batch_size, 1, latent_dim, codes_per_latent)
