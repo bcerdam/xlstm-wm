@@ -162,7 +162,7 @@ if __name__ == '__main__':
 
     categorical_encoder = torch.compile(categorical_encoder)
     categorical_decoder = torch.compile(categorical_decoder)
-    # xlstm_dm = torch.compile(xlstm_dm)
+    # xlstm_dm = torch.compile(xlstm_dm) # Cannot compile because cluster gpu's do not support it.
     actor = torch.compile(actor)
     critic = torch.compile(critic)
     ema_critic = torch.compile(ema_critic)
@@ -190,7 +190,6 @@ if __name__ == '__main__':
                                                                                     codes_per_latent=CODES_PER_LATENT, 
                                                                                     device=DEVICE, 
                                                                                     context_length=CONTEXT_LENGTH)
-        total_reward = np.sum(rewards)
 
         dataset.update(observations=observations, 
                        actions=actions, 
