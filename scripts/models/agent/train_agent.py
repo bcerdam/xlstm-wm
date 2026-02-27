@@ -38,7 +38,6 @@ def dream(xlstm_dm:XLSTM_DM,
 
         imagined_latents.append(next_latent_sample)
         imagined_rewards.append(reward[:, -1, :])
-        print(f'Termination  debug: {termination[:, -1, :]}, {torch.sigmoid(termination[:, -1, :])}, {(termination[:, -1, :] > 0.0).float()}')
         imagined_terminations.append((termination[:, -1, :] > 0.0).float())
         hidden_states.append(hidden_state[:, -1, :])
 
