@@ -170,9 +170,7 @@ def train_agent(latents_sampled_batch:torch.Tensor,
                                     state_values=state_values, 
                                     log_policy=log_policy, 
                                     nabla=nabla, 
-                                    entropy=entropy,
-                                    lowerbound_ema=actor.lowerbound_ema,
-                                    upperbound_ema=actor.upperbound_ema)
+                                    entropy=entropy)
     
     mean_critic_loss = critic_loss(batch_lambda_returns=regular_lambda_returns, 
                                     state_values=state_values, 
