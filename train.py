@@ -343,19 +343,3 @@ if __name__ == '__main__':
         print(f"(8) Plot Loss:       {t_plot:.4f}s")
         print(f"----------------------------------")
 
-# scp bcmardini@mazinger.ing.puc.cl:/home3/bcmardini/xlstm-wm/output/run_544915/logs/loss_plot.jpeg .
-
-# sbatch job.sh --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3
-
-# sbatch job.sh --train_wm.epochs 1000 --train_wm.training_steps_per_epoch 400 --train_wm.wm_batch_size 32 --train_wm.sequence_length 4 --train_wm.embedding_dim 256 --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 --train_agent.agent_batch_size 32 --train_agent.context_length 4 --env.env_steps_per_epoch 100
-
-# sbatch job.sh --train_wm.epochs 500 --train_wm.training_steps_per_epoch 200 --train_wm.wm_batch_size 64 --train_wm.sequence_length 20 --train_wm.embedding_dim 256 --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 --train_agent.agent_batch_size 64 --train_agent.context_length 20 --env.env_steps_per_epoch 200
-
-
-# Breakout
-
-# sbatch job.sh --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 --env.env_name "ALE/Breakout-v5"
-
-# Alien
-
-# sbatch job.sh --train_wm.run_eval_episodes True --train_wm.n_eval_episodes 3 --env.env_name "ALE/Alien-v5"
