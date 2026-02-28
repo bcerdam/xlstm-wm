@@ -48,10 +48,14 @@ class CategoricalDecoder(nn.Module):
                 layers.append(ReLU)
             else:
                 layers.append(conv)
-                layers.append(nn.Tanh())
 
         self.upscale_features = nn.Sequential(*layers)
-        self.linear = nn.Linear(in_features=self.linear_in_dim, out_features=self.channels[0]*self.current_dim*self.current_dim)
+
+        linear_out_dim = self.channels[0]*self.current_dim*self.current_dim
+        self.linear = nn.Linear(in_features=self.linear_in_dim, out_features=linear_out_dim)
+
+        self.linear_bn = nn.BatchNorm1d(num_features=linear_out_dim)
+        self.linear_relu = nn.ReLU(inplace=True)
 
 
     def forward(self, latents_batch: torch.Tensor, 
@@ -62,8 +66,10 @@ class CategoricalDecoder(nn.Module):
         
         latents_batch = latents_batch.view(batch_size*sequence_length, latent_dim, codes_per_latent)
         flattened_latents = self.flattened_latent(latents_batch)
-        projected_features = self.linear(flattened_latents)
+
+        projected_features = self.linear_relu(self.linear_bn(self.linear(flattened_latents)))
         reshaped_features = projected_features.reshape(-1, self.channels[0], self.current_dim, self.current_dim)
+
         upscaled_features = self.upscale_features(reshaped_features)
         upscaled_features = upscaled_features.view(batch_size, sequence_length, 3, 64, 64)
         return upscaled_features
