@@ -319,7 +319,7 @@ if __name__ == '__main__':
                                                                                actor=actor)
     
         
-        save_dream_video(real_frames=torch.unbind(observations[:, CONTEXT_LENGTH:].cpu(), dim=1),
+        save_dream_video(real_frames=[f.numpy() for f in torch.unbind(observations[:, CONTEXT_LENGTH:].cpu(), dim=1)],
                          imagined_frames=imagined_frames, 
                          real_rewards=torch.unbind(rewards[:, CONTEXT_LENGTH:].cpu(), dim=1),
                          imagined_rewards=imagined_rewards,
