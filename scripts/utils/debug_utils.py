@@ -174,8 +174,12 @@ def visualize_reconstruction(env_name: str,
     decoder = CategoricalDecoder(latent_dim=latent_dim, codes_per_latent=codes_per_latent).to(device)
 
     checkpoint = torch.load(weights_path, map_location=device)
-    encoder.load_state_dict(checkpoint['encoder'])
-    decoder.load_state_dict(checkpoint['decoder'])
+    
+    def clean_state_dict(sd):
+        return {k.replace('_orig_mod.', ''): v for k, v in sd.items()}
+
+    encoder.load_state_dict(clean_state_dict(checkpoint['encoder']))
+    decoder.load_state_dict(clean_state_dict(checkpoint['decoder']))
 
     encoder.eval()
     decoder.eval()
