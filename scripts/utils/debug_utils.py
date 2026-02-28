@@ -127,19 +127,6 @@ def plot_current_loss(training_steps_per_epoch: int, epochs: int, output_dir: st
     plt.close()
 
 
-def save_checkpoint(encoder, decoder, tokenizer, dynamics, optimizer, scaler, step, path="output/checkpoints"):
-    os.makedirs(path, exist_ok=True)
-    torch.save({
-        'step': step,
-        'encoder': encoder.state_dict(),
-        'decoder': decoder.state_dict(),
-        'tokenizer': tokenizer.state_dict(),
-        'dynamics': dynamics.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        'scaler': scaler.state_dict()
-    }, os.path.join(path, f"checkpoint_step_{step}.pth"))
-
-
 def save_checkpoint(encoder, decoder, tokenizer, dynamics, 
                     actor, critic, ema_critic,
                     wm_optimizer, agent_optimizer, 
@@ -160,57 +147,76 @@ def save_checkpoint(encoder, decoder, tokenizer, dynamics,
     }, os.path.join(path, f"checkpoint_step_{step}.pth"))
 
 
-def visualize_reconstruction(dataset_path:str, 
-                             weights_path:str, 
-                             device:torch.device, 
-                             sequence_length:int, 
-                             latent_dim:int, 
-                             codes_per_latent:int, 
-                             epoch:int,
-                             video_path="output/videos") -> None:
+import os
+import cv2
+import numpy as np
+import torch
+import gymnasium as gym
+import ale_py
+from gymnasium.wrappers import AtariPreprocessing
+from scripts.models.categorical_vae.encoder import CategoricalEncoder
+from scripts.models.categorical_vae.decoder import CategoricalDecoder
+from scripts.models.categorical_vae.sampler import sample
+from scripts.utils.tensor_utils import normalize_observation, reshape_observation
+
+def visualize_reconstruction(env_name: str,
+                             weights_path: str, 
+                             device: str, 
+                             sequence_length: int, 
+                             latent_dim: int, 
+                             codes_per_latent: int, 
+                             epoch: int,
+                             video_path: str = "output/videos") -> None:
 
     os.makedirs(video_path, exist_ok=True)
 
-    dataset = AtariDataset(replay_buffer_path=dataset_path, sequence_length=sequence_length)
     encoder = CategoricalEncoder(latent_dim=latent_dim, codes_per_latent=codes_per_latent).to(device)
     decoder = CategoricalDecoder(latent_dim=latent_dim, codes_per_latent=codes_per_latent).to(device)
 
     checkpoint = torch.load(weights_path, map_location=device)
-    encoder.load_state_dict(checkpoint['encoder_state_dict'])
-    decoder.load_state_dict(checkpoint['decoder_state_dict'])
+    encoder.load_state_dict(checkpoint['encoder'])
+    decoder.load_state_dict(checkpoint['decoder'])
 
     encoder.eval()
     decoder.eval()
-    
-    idx = np.random.randint(0, len(dataset) - sequence_length)
-    obs_seq, _, _, _ = dataset[idx] 
-    obs_seq = torch.from_numpy(obs_seq)
-        
-    model_input = obs_seq.unsqueeze(0).to(device)
+
+    gym.register_envs(ale_py)
+    env = gym.make(id=env_name, frameskip=1)
+    env = AtariPreprocessing(env=env, noop_max=30, frame_skip=4, screen_size=64, terminal_on_life_loss=False, grayscale_obs=False)
+
+    obs_seq = []
+    obs, _ = env.reset()
+    for _ in range(sequence_length):
+        processed_obs = reshape_observation(normalize_observation(observation=obs))
+        obs_seq.append(processed_obs)
+        action = env.action_space.sample()
+        obs, _, term, trunc, _ = env.step(action)
+        if term or trunc:
+            obs, _ = env.reset()
+    env.close()
+
+    model_input = torch.from_numpy(np.array(obs_seq)).unsqueeze(0).to(device)
+
     with torch.no_grad():
         latents = encoder.forward(observations_batch=model_input, batch_size=1, sequence_length=sequence_length, latent_dim=latent_dim, codes_per_latent=codes_per_latent)
-        sampled_latents = sample(latents)
+        sampled_latents = sample(latents_batch=latents, batch_size=1, sequence_length=sequence_length)
         reconstructions = decoder.forward(latents_batch=sampled_latents, batch_size=1, sequence_length=sequence_length, latent_dim=latent_dim, codes_per_latent=codes_per_latent)
 
     model_input = model_input.cpu()
     reconstructions = reconstructions.cpu()
 
-    orig_np = (model_input[0].permute(0, 2, 3, 1).numpy() + 1) * 127.5
-    recon_np = (reconstructions[0].permute(0, 2, 3, 1).numpy() + 1) * 127.5
-
-    orig_np = orig_np.astype(np.uint8)
-    recon_np = recon_np.astype(np.uint8)
+    orig_np = ((model_input[0].permute(0, 2, 3, 1).numpy() + 1.0) * 127.5).clip(0, 255).astype(np.uint8)
+    recon_np = ((reconstructions[0].permute(0, 2, 3, 1).numpy() + 1.0) * 127.5).clip(0, 255).astype(np.uint8)
 
     save_file = os.path.join(video_path, f"epoch_{epoch}_reconstruction.mp4")
-    L, height, width, _ = orig_np.shape
+    height, width = orig_np.shape[1], orig_np.shape[2]
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(save_file, fourcc, 15.0, (width * 2, height))
 
-    for t in range(L):
+    for t in range(sequence_length):
         frame_orig = cv2.cvtColor(orig_np[t], cv2.COLOR_RGB2BGR)
         frame_recon = cv2.cvtColor(recon_np[t], cv2.COLOR_RGB2BGR)
-        
         combined_frame = np.concatenate((frame_orig, frame_recon), axis=1)
         out.write(combined_frame)
 
@@ -329,16 +335,22 @@ def save_dream_video(real_frames: List[np.ndarray], # CHANGED
     out.release()
 
 
-# if __name__ == '__main__':
-#     h5_path = 'data/replay_buffer.h5'
-#     start_idx = 0
-#     steps = 200
-#     video_fps = 15
-#     output_path = 'output/videos/rollout/rollout_video_1.mp4'
-#     sequence_length = 64
-#     latent_dim = 32
-#     codes_per_latent = 32
-#     epoch = 100
+if __name__ == '__main__':
+    start_idx = 0
+    steps = 200
+    video_fps = 15
+    output_path = 'output/videos/rollout/rollout_video_1.mp4'
+    sequence_length = 64
+    latent_dim = 32
+    codes_per_latent = 32
+    epoch = 100
+    env_name = "ALE/Pong-v5"
+    weights_path = 'output/checkpoints/checkpoint_step_90000.pth'
+    device = 'cuda'
+
+    visualize_reconstruction(env_name=env_name, weights_path=weights_path, device=device, 
+                             sequence_length=1000, latent_dim=latent_dim, codes_per_latent=codes_per_latent, 
+                             epoch=epoch, video_path=output_path)
 
 #     plot_current_loss(training_steps_per_epoch=200, epochs=500)
 
