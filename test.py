@@ -48,9 +48,9 @@ def run_episode(env_name: str,
     all_terminations = [] 
     all_episode_starts = []
 
-    context_tokens = None
+    state = None
     embedding_dim = tokenizer.embedding_dim 
-    current_hidden_state = torch.zeros(1, 1, embedding_dim, device=device)
+    features = torch.zeros(1, 1, embedding_dim, device=device)
 
     observation, info = env.reset()
     observation = reshape_observation(normalize_observation(observation=observation))
@@ -70,7 +70,8 @@ def run_episode(env_name: str,
             sampled_latent = sample(latents_batch=latent, batch_size=1, sequence_length=1)
 
             action_array = np.zeros(env.action_space.n, dtype=np.float32)
-            env_state = torch.concat([sampled_latent, current_hidden_state], dim=-1)
+            env_state = torch.concat([sampled_latent, features], dim=-1)
+
 
             if first_iter == True:
                 action = env.action_space.sample()
@@ -85,16 +86,7 @@ def run_episode(env_name: str,
             all_actions.append(action_array)
 
             token = tokenizer.forward(latents_sampled_batch=sampled_latent, actions_batch=tensor_action_array)
-
-            if context_tokens is None:
-                context_tokens = token
-            else:
-                context_tokens = torch.cat([context_tokens, token], dim=1)
-                if context_tokens.shape[1] > context_length:
-                    context_tokens = context_tokens[:, -context_length:, :]
-
-            _, _, _, hidden_state = xlstm_dm.forward(tokens_batch=context_tokens)
-            current_hidden_state = hidden_state[:, -1:, :]
+            _, _, _, features, state = xlstm_dm.step(tokens_batch=token, state=state)
 
             observation, reward, termination, truncated, info = env.step(action)
             observation = reshape_observation(normalize_observation(observation=observation))
