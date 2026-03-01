@@ -245,11 +245,11 @@ def visualize_reconstruction(env_name: str,
 
 #     out.release()
 
-# import os
-# import cv2
-# import torch
-# import numpy as np
-# from typing import List, Union
+import os
+import cv2
+import torch
+import numpy as np
+from typing import List, Union
 
 def save_real_video(imagined_frames: List[np.ndarray], 
                      imagined_rewards: List[Union[torch.Tensor, np.ndarray]], 
