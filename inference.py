@@ -295,7 +295,8 @@ if __name__ == '__main__':
                                                                 latent_dim=LATENT_DIM, 
                                                                 codes_per_latent=CODES_PER_LATENT, 
                                                                 imagination_horizon=IMAGINATION_HORIZON, 
-                                                                timestep_idx=inference_cfg['timestep_idx'])
+                                                                timestep_idx=inference_cfg['timestep_idx'], 
+                                                                xlstm_dm=xlstm_dm)
 
     with torch.no_grad():
         latents = encoder.forward(observations_batch=observations[:, :CONTEXT_LENGTH], 
@@ -318,8 +319,7 @@ if __name__ == '__main__':
                                                                                batch_size=BATCH_SIZE, 
                                                                                env_actions=ENV_ACTIONS, 
                                                                                device=DEVICE, 
-                                                                               actor=actor, 
-                                                                               xlstm_dm=xlstm_dm)
+                                                                               actor=actor)
     
         
         save_dream_video(real_frames=[f.numpy() for f in torch.unbind(observations[:, CONTEXT_LENGTH:].cpu(), dim=1)],
