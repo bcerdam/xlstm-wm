@@ -318,7 +318,8 @@ if __name__ == '__main__':
                                                                                batch_size=BATCH_SIZE, 
                                                                                env_actions=ENV_ACTIONS, 
                                                                                device=DEVICE, 
-                                                                               actor=actor)
+                                                                               actor=actor, 
+                                                                               xlstm_dm=xlstm_dm)
     
         
         save_dream_video(real_frames=[f.numpy() for f in torch.unbind(observations[:, CONTEXT_LENGTH:].cpu(), dim=1)],
