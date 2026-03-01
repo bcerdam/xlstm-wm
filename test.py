@@ -5,7 +5,7 @@ import numpy as np
 import gymnasium as gym
 import ale_py
 from scripts.utils.tensor_utils import normalize_observation, reshape_observation, env_n_actions
-from scripts.utils.debug_utils import save_dream_video
+from scripts.utils.debug_utils import save_real_video
 from gymnasium.wrappers import AtariPreprocessing, ClipReward
 from typing import Tuple, List
 from scripts.models.agent.actor import Actor
@@ -208,7 +208,7 @@ if __name__ == '__main__':
     all_rewards = np.expand_dims(all_rewards, axis=1)
     all_terminations = np.expand_dims(all_terminations, axis=1)
 
-    save_dream_video(imagined_frames=all_observations, 
+    save_real_video(imagined_frames=all_observations, 
                      imagined_rewards=all_rewards, 
                      imagined_terminations=all_terminations, 
                      video_path=VIDEO_PATH, 
